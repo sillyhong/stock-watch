@@ -1,0 +1,169 @@
+import axios from "axios";
+import { formatKlinesData } from "./formatKlines";
+import { GetConvert } from "@/modules/tools/indicator/old";
+import dayjs, { Dayjs } from "dayjs";
+import { EStockType } from "../interface";
+import { isTodayWorkday } from "./workday";
+import { QQMail } from "./email";
+import { StockLists } from "./stockList";
+
+
+export const MarketOpenSetting = {
+ [EStockType.A]: {
+  marketOpenHour: '09:30',
+  marketCloseHour: '15:00',
+ },
+ [EStockType.HK]: {
+  marketOpenHour: '09:30',
+  marketCloseHour: '16:00',
+ },
+ [EStockType.US]: {
+  marketOpenHour: '22:30',
+  marketCloseHour: '04:00',
+ },
+} 
+
+
+const isMarketOpen = (marketOpenHour: string, marketCloseHour: string, currentDate: Dayjs): boolean => {
+    const marketOpenTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketOpenHour}`, 'YYYY-MM-DD HH:mm:ss');
+    // 延长5s
+    let marketCloseTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketCloseHour}:05`, 'YYYY-MM-DD HH:mm:ss');
+
+    // If the market close time is earlier than the open time, it means the market closes after midnight
+    if (marketCloseTime.isBefore(marketOpenTime)) {
+        marketCloseTime = marketCloseTime.add(1, 'day');
+    }
+
+    console.log("🚀 ~ isMarketOpen ~ currentDate:", currentDate.format('YYYY-MM-DD HH:mm:ss'), 'marketOpenTime:', marketOpenTime.format('YYYY-MM-DD HH:mm:ss'), 'marketCloseTime:', (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)), (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime)));
+
+    return (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)) && (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime));
+};
+
+const prehandleFetch = async ({
+  stockType,
+  currentDate = dayjs(),
+  sendEmail = true
+}: {
+  stockType: EStockType,
+  currentDate?: Dayjs,
+  sendEmail?: boolean
+}) => {
+    const checkWorkdayRes = isTodayWorkday(stockType, currentDate.toDate());
+
+    if (!checkWorkdayRes) {
+        console.warn(`[${stockType}] Today is not a workday`);
+        return `[${stockType}] Today is not a workday`;
+    }
+    const marketSettings = MarketOpenSetting[stockType];
+    if (!isMarketOpen(marketSettings.marketOpenHour, marketSettings.marketCloseHour, currentDate)) {
+        console.warn(`[${stockType}] Market is currently closed`);
+        return `[${stockType}] Market is currently closed`;
+    }
+
+    return await fetchRSIAndSendEmail({
+        stockLists: StockLists[stockType],
+        currentDate,
+        sendEmail,
+        stockType
+    });
+}
+
+export const fetchUSRSI = async (params: { currentDate?: Dayjs, sendEmail?: boolean }) => {
+    return prehandleFetch({ stockType: EStockType.US, ...params });
+}
+
+export const fetchARSI = async (params: { currentDate?: Dayjs, sendEmail?: boolean }) => {
+    return prehandleFetch({ stockType: EStockType.A, ...params });
+}
+
+export const fetchHKRSI = async (params: { currentDate?: Dayjs, sendEmail?: boolean }) => {
+    return prehandleFetch({ stockType: EStockType.HK, ...params });
+}
+
+
+export const fetchRSIAndSendEmail = async ({
+  stockLists = [],
+  currentDate = dayjs(),
+  sendEmail = true,
+  stockType,
+}: {
+  stockLists: string[],
+  stockType: EStockType,
+  currentDate?: Dayjs,
+  sendEmail?: boolean,
+}) => {
+      const targetRSIData: any[] =[]
+     
+      const startFormatDay = dayjs(currentDate).format('YYYYMMDD');
+      const endFormatDay = dayjs(currentDate).format('YYYYMMDD');
+     
+      const requests = stockLists.length > 0 ? stockLists.map(stockId =>  {
+        const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=15&fqt=0&beg=${startFormatDay}&end=20500000`
+        console.log("🚀 ~ reqUrl:", reqUrl)
+        return axios.get(reqUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Connection': 'keep-alive'
+          }
+        });
+      }
+        
+      ) : [];
+        const results = await Promise.all(requests);
+    
+        results?.forEach(eastmoneyData => {
+          const sourceData = eastmoneyData?.data?.data;
+          // console.log("🚀 ~ sourceData:", sourceData)
+          const stockName = sourceData?.name;
+          const RSIData = formatKlinesData(sourceData);
+          const fullKlinesData = GetConvert('RSI', RSIData.full_klines);
+    
+          const stockRSIData = fullKlinesData?.map(item => {
+            const itemTime = dayjs(item[0]);
+            const diffInMinutes = currentDate.diff(itemTime, 'minute');
+            
+    
+            if (diffInMinutes <= 5 && diffInMinutes >= 0) {
+              console.log("🚀 ~ itemTime:", dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes)
+              if (Number(item?.[1]) <= 20) {
+                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 立即买入🚀`;
+              } else if (Number(item?.[1]) <= 25) {
+                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 建议买入🔥`;
+              }else if (Number(item?.[1]) >= 90) {
+                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 立即卖出😱`;
+              } else if (Number(item?.[1]) >= 85) {
+                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 建议卖出🚨`;
+              }
+            }
+          }).filter(item => !!item);
+    
+          targetRSIData.push(...stockRSIData);
+        });
+        if (targetRSIData.length && sendEmail) {
+
+          targetRSIData.sort((a, b) => {
+            const aAction = a.includes('建议买入') ? 0 : 1;
+            const bAction = b.includes('建议买入') ? 0 : 1;
+            return aAction - bAction;
+          });
+          console.log("🚀 ~ handler ~ 发送邮件 \n", targetRSIData.join('\n'));
+
+          const mailOptions = {
+            from: `[${stockType}][15RSI]<1175166300@qq.com>`, // 发件人地址
+            to: '1175166300@qq.com', // 收件人地址
+            subject: dayjs(currentDate).format('YYYY-MM-DD HH:mm'), // 邮件主题
+            text: targetRSIData.join('\n'), // 邮件内容
+          };
+    
+          QQMail.sendMail(mailOptions, (error: any, info: any) => {
+            if (error) {
+              console.log(error);
+              return;
+            }
+            console.log(`Message sent: ${info.messageId}`);
+          });
+        }
+        return targetRSIData
+    };
