@@ -5,8 +5,3 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
-const port = 3008;
-
-nextConfig.devServer = {
-  port: port,
-};
