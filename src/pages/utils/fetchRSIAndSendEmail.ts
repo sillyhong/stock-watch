@@ -2,7 +2,7 @@ import axios from "axios";
 import { formatKlinesData } from "./formatKlines";
 import { GetConvert } from "@/modules/tools/indicator/old";
 import dayjs, { Dayjs } from "dayjs";
-import { EStockType } from "../interface";
+import { EStockType, MarketTYpe, EKLT, EKLTDesc, getEKLTDesc } from "../interface";
 import { isTodayWorkday } from "./workday";
 import { QQMail } from "./email";
 import { StockLists } from "./stockList";
@@ -42,41 +42,47 @@ const isMarketOpen = (marketOpenHour: string, marketCloseHour: string, currentDa
 const prehandleFetch = async ({
   stockType,
   currentDate = dayjs(),
-  sendEmail = true
+  sendEmail = true,
+  klt
 }: {
   stockType: EStockType,
+  klt: number,
   currentDate?: Dayjs,
   sendEmail?: boolean
 }) => {
     const checkWorkdayRes = isTodayWorkday(stockType, currentDate.toDate());
 
-    if (!checkWorkdayRes) {
-        console.warn(`[${stockType}] Today is not a workday`);
-        return `[${stockType}] Today is not a workday`;
-    }
-    const marketSettings = MarketOpenSetting[stockType];
-    if (!isMarketOpen(marketSettings.marketOpenHour, marketSettings.marketCloseHour, currentDate)) {
-        console.warn(`[${stockType}] Market is currently closed`);
-        return `[${stockType}] Market is currently closed`;
-    }
+    // if(klt === 15) {
+    //   if (!checkWorkdayRes) {
+    //     console.warn(`[${stockType}] Today is not a workday`);
+    //     return `[${stockType}] Today is not a workday`;
+    //   }
+    //   const marketSettings = MarketOpenSetting[stockType];
+    //   if (!isMarketOpen(marketSettings.marketOpenHour, marketSettings.marketCloseHour, currentDate)) {
+    //       console.warn(`[${stockType}] Market is currently closed`);
+    //       return `[${stockType}] Market is currently closed`;
+    //   }
+    // }
+   
 
     return await fetchRSIAndSendEmail({
         stockLists: StockLists[stockType],
         currentDate,
         sendEmail,
-        stockType
+        stockType,
+        klt,
     });
 }
 
-export const fetchUSRSI = async (params: { currentDate?: Dayjs, sendEmail?: boolean }) => {
+export const fetchUSRSI = async (params: {  klt: number, currentDate?: Dayjs, sendEmail?: boolean }) => {
     return prehandleFetch({ stockType: EStockType.US, ...params });
 }
 
-export const fetchARSI = async (params: { currentDate?: Dayjs, sendEmail?: boolean }) => {
+export const fetchARSI = async (params: {  klt: number, currentDate?: Dayjs, sendEmail?: boolean }) => {
     return prehandleFetch({ stockType: EStockType.A, ...params });
 }
 
-export const fetchHKRSI = async (params: { currentDate?: Dayjs, sendEmail?: boolean }) => {
+export const fetchHKRSI = async (params: {  klt: number, currentDate?: Dayjs, sendEmail?: boolean }) => {
     return prehandleFetch({ stockType: EStockType.HK, ...params });
 }
 
@@ -86,19 +92,21 @@ export const fetchRSIAndSendEmail = async ({
   currentDate = dayjs(),
   sendEmail = true,
   stockType,
+  klt = EKLT['15M'],
 }: {
   stockLists: string[],
   stockType: EStockType,
   currentDate?: Dayjs,
   sendEmail?: boolean,
+  klt: number,
 }) => {
       const targetRSIData: any[] =[]
-     
-      const startFormatDay = dayjs(currentDate).format('YYYYMMDD');
+      // 需要前6个周期的值，需要向前几天拉取数据
+      const startFormatDay = dayjs(currentDate).subtract(7,'day').format('YYYYMMDD');
       const endFormatDay = dayjs(currentDate).format('YYYYMMDD');
      
       const requests = stockLists.length > 0 ? stockLists.map(stockId =>  {
-        const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=15&fqt=0&beg=${startFormatDay}&end=20500000`
+        const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
         console.log("🚀 ~ reqUrl:", reqUrl)
         return axios.get(reqUrl, {
           headers: {
@@ -117,30 +125,39 @@ export const fetchRSIAndSendEmail = async ({
           const sourceData = eastmoneyData?.data?.data;
           // console.log("🚀 ~ sourceData:", sourceData)
           const stockName = sourceData?.name;
+          const market = sourceData?.market;
+          const stockCode = sourceData?.code;
+          const marketType = MarketTYpe[market]
+
           const RSIData = formatKlinesData(sourceData);
           const fullKlinesData = GetConvert('RSI', RSIData.full_klines);
+          // console.log("🚀 ~ stockName:",stockName, 'fullKlinesData:', fullKlinesData)
     
           const stockRSIData = fullKlinesData?.map(item => {
             const itemTime = dayjs(item[0]);
             const diffInMinutes = currentDate.diff(itemTime, 'minute');
             
-    
-            if (diffInMinutes <= 5 && diffInMinutes >= 0) {
-              console.log("🚀 ~ itemTime:", dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes)
-              if (Number(item?.[1]) <= 20) {
-                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 立即买入🚀`;
-              } else if (Number(item?.[1]) <= 25) {
-                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 建议买入🔥`;
-              }else if (Number(item?.[1]) >= 90) {
-                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 立即卖出😱`;
-              } else if (Number(item?.[1]) >= 85) {
-                return `[${item[0]}] [15RSI] [${stockName}]: ${item[1]} ➜ 建议卖出🚨`;
-              }
+            console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
+            // 15min RSI 只保留0-5分钟内的数据
+            if(klt === EKLT["15M"] && (diffInMinutes > 5 || diffInMinutes < 0)) {
+                return
+            }
+            const kltDesc = getEKLTDesc(klt)
+            const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
+            if (Number(item?.[1]) <= 20) {
+              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 立即买入🚀`;
+            } else if (Number(item?.[1]) <= 25) {
+              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 建议买入🔥`;
+            } else if (Number(item?.[1]) >= 90) {
+              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 立即卖出😱`;
+            } else if (Number(item?.[1]) >= 85) {
+              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 建议卖出🚨`;
             }
           }).filter(item => !!item);
     
           targetRSIData.push(...stockRSIData);
         });
+
         if (targetRSIData.length && sendEmail) {
 
           targetRSIData.sort((a, b) => {

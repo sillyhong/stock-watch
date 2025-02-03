@@ -12,19 +12,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('3 */15 * * * *', ()=>{
+      HTask = cron.schedule('0 17 * * 1-5', ()=>{
         fetchHKRSI({
-          klt: EKLT['15M'],
-          currentDate: dayjs()
+          klt: EKLT.DAY,
+          currentDate: dayjs().subtract(30,'day')
         })
       }, {
         timezone: "Asia/Shanghai",
         scheduled: true
       });
     }
-    rsiData = await fetchHKRSI({ klt: 15, sendEmail: false})
+    rsiData = await fetchHKRSI({klt: EKLT.DAY, sendEmail: false, currentDate: dayjs().subtract(30,'day') })
 
-    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.', data: rsiData });
+    res.status(200).json({ message: 'Cron job set to check RSI every workday.', data: rsiData });
   } else if (req.method === 'DELETE') {
     if (HTask) {
       HTask.stop();

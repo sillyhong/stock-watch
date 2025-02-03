@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
+import { EKLT } from '@/pages/interface';
 
 let ATask: cron.ScheduledUSTask;
 
@@ -13,6 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(ATask)) {
       ATask = cron.schedule('3 */15 * * * *', ()=>{
         fetchARSI({
+          klt: EKLT['15M'],
           currentDate: dayjs()
         })
       }, {
@@ -21,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
-    rsiData = await fetchARSI({sendEmail: false})
+    rsiData = await fetchARSI({ klt: 15, sendEmail: false, currentDate: dayjs().subtract(8, 'day').subtract(8, 'hour')})
 
     res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {

@@ -3,6 +3,7 @@ import cron from 'node-cron';
 import isEmpty from "lodash/isEmpty";
 import { fetchUSRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
+import { EKLT } from '@/pages/interface';
 
 let USTask: cron.ScheduledUSTask;
 
@@ -11,13 +12,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(USTask)) {
       USTask = cron.schedule('3 */15 * * * *', ()=>{
         fetchUSRSI({
-          currentDate: dayjs().subtract(6, 'day')
+           klt: EKLT['15M'],
+          currentDate: dayjs()
         })
       }, {
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      await fetchUSRSI({sendEmail: false})
+      await fetchUSRSI({ klt: 15, sendEmail: false})
     }
     res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.' });
   } else if (req.method === 'DELETE') {
