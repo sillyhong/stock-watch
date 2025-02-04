@@ -9,6 +9,8 @@ let USTask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
+    let rsiData
+
     if (isEmpty(USTask)) {
       USTask = cron.schedule('3 */15 * * * *', ()=>{
         fetchUSRSI({
@@ -19,9 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      await fetchUSRSI({ klt: 15, sendEmail: false})
+      rsiData = await fetchUSRSI({ klt: 15, sendEmail: false})
     }
-    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.' });
+    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.',data: rsiData });
   } else if (req.method === 'DELETE') {
     if (USTask) {
       USTask.stop();

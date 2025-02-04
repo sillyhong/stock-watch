@@ -2,7 +2,7 @@ import axios from "axios";
 import { formatKlinesData } from "./formatKlines";
 import { GetConvert } from "@/modules/tools/indicator/old";
 import dayjs, { Dayjs } from "dayjs";
-import { EStockType, MarketTYpe, EKLT, EKLTDesc, getEKLTDesc } from "../interface";
+import { EStockType, MarketType, EKLT, getEKLTDesc } from "../interface";
 import { isTodayWorkday } from "./workday";
 import { QQMail } from "./email";
 import { StockLists } from "./stockList";
@@ -107,7 +107,7 @@ export const fetchRSIAndSendEmail = async ({
      
       const requests = stockLists.length > 0 ? stockLists.map(stockId =>  {
         const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
-        console.log("🚀 ~ reqUrl:", reqUrl)
+        // console.log("🚀 ~ reqUrl:", reqUrl)
         return axios.get(reqUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -127,7 +127,7 @@ export const fetchRSIAndSendEmail = async ({
           const stockName = sourceData?.name;
           const market = sourceData?.market;
           const stockCode = sourceData?.code;
-          const marketType = MarketTYpe[market]
+          const marketType = MarketType[market]
 
           const RSIData = formatKlinesData(sourceData);
           const fullKlinesData = GetConvert('RSI', RSIData.full_klines);
@@ -137,11 +137,12 @@ export const fetchRSIAndSendEmail = async ({
             const itemTime = dayjs(item[0]);
             const diffInMinutes = currentDate.diff(itemTime, 'minute');
             
-            console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
             // 15min RSI 只保留0-5分钟内的数据
-            if(klt === EKLT["15M"] && (diffInMinutes > 5 || diffInMinutes < 0)) {
+            if(klt === EKLT["15M"] && (diffInMinutes > 5 || diffInMinutes < -5)) {
                 return
             }
+            // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
+            // if(diffInMinutes < 0) return
             const kltDesc = getEKLTDesc(klt)
             const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
             if (Number(item?.[1]) <= 20) {

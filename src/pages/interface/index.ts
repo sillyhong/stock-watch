@@ -5,9 +5,12 @@ export enum EStockType {
   }
 
   
-  export const MarketTYpe = {
+  export const MarketType = {
      0: 'sz',
      1: 'sh',
+     105: 'us/', // 美股
+     106: 'us/',// 美股
+     116: 'hk/'// 港股
   }
 
 
