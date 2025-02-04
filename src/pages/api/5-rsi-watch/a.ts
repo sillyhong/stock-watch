@@ -1,33 +1,35 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import cron from 'node-cron';
 import isEmpty from "lodash/isEmpty";
-import { fetchUSRSI } from '@/pages/utils/fetchRSIAndSendEmail';
+import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
-let USTask: cron.ScheduledUSTask;
+let ATask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    let rsiData
-
-    if (isEmpty(USTask)) {
-      USTask = cron.schedule('3 */15 * * * *', ()=>{
-        fetchUSRSI({
-           klt: EKLT['15M'],
+    let rsiData: any
+    console.log('isEmpty(ATask)',isEmpty(ATask))
+    if (isEmpty(ATask)) {
+      ATask = cron.schedule('3 */5 * * * 1-5', ()=>{
+        fetchARSI({
+          klt: EKLT['5M'],
           currentDate: dayjs()
         })
       }, {
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      rsiData = await fetchUSRSI({ klt: 15, sendEmail: false})
     }
-    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.',data: rsiData });
+    
+    rsiData = await fetchARSI({ klt: EKLT['5M'], sendEmail: false, currentDate: dayjs().subtract(8, 'day')})
+
+    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {
-    if (USTask) {
-      USTask.stop();
-      USTask = null;
+    if (ATask) {
+      ATask.stop();
+      ATask = null;
       res.status(200).json({ message: 'Cron job has been stopped.' });
     } else {
       res.status(400).json({ message: 'Cron job is not running.' });

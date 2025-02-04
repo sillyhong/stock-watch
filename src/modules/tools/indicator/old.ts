@@ -223,7 +223,7 @@ let SAR_LOW = 0;
 let SAR_HIGH = 0;
 function Convert(bodys) {
     if ((bodys == null) || (bodys.length == 0)) {
-        console.log("历史行情数据不能为空");
+        console.log("Convert data error, sourdata can tot fountd");
         return bodys
     }
     const entities = bodys;

@@ -23,6 +23,69 @@ export const MarketOpenSetting = {
  },
 } 
 
+export const RSIThresholds = {
+  [EStockType.A]: {
+    [EKLT['5M']]: {
+      buy: 20,
+      mustBuy: 15,
+      sell: 85,
+      mustSell: 90 
+    },
+    [EKLT['15M']]: { 
+      buy: 25,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
+    },
+    [EKLT['DAY']]: { 
+      buy: 20,
+      mustBuy: 15,
+      sell: 75,
+      mustSell: 80
+    }
+  },
+  [EStockType.HK]: {
+    [EKLT['5M']]: {
+      buy: 20,
+      mustBuy: 15,
+      sell: 85,
+      mustSell: 90 
+    },
+    [EKLT['15M']]: { 
+      buy: 20,
+      mustBuy: 15,
+      sell: 80,
+      mustSell: 90
+    },
+    [EKLT['DAY']]: { 
+      buy: 20,
+      mustBuy: 15,
+      sell: 75,
+      mustSell: 80 
+    }
+  },
+  [EStockType.US]: {
+    [EKLT['5M']]: {
+      buy: 20,
+      mustBuy: 15,
+      sell: 80,
+      mustSell: 90
+    },
+    [EKLT['15M']]: { 
+      buy: 20,
+      mustBuy: 15,
+      sell: 80,
+      mustSell: 90
+    },
+    [EKLT['DAY']]: { 
+      buy: 20,
+      mustBuy: 15,
+      sell: 80,
+      mustSell: 85
+    }
+  }
+}
+
 
 const isMarketOpen = (marketOpenHour: string, marketCloseHour: string, currentDate: Dayjs): boolean => {
     const marketOpenTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketOpenHour}`, 'YYYY-MM-DD HH:mm:ss');
@@ -98,7 +161,7 @@ export const fetchRSIAndSendEmail = async ({
   stockType: EStockType,
   currentDate?: Dayjs,
   sendEmail?: boolean,
-  klt: number,
+  klt: EKLT,
 }) => {
       const targetRSIData: any[] =[]
       // 需要前6个周期的值，需要向前几天拉取数据
@@ -138,20 +201,22 @@ export const fetchRSIAndSendEmail = async ({
             const diffInMinutes = currentDate.diff(itemTime, 'minute');
             
             // 15min RSI 只保留0-5分钟内的数据
-            if(klt === EKLT["15M"] && (diffInMinutes > 5 || diffInMinutes < -5)) {
+            if((klt === EKLT["15M"] || klt === EKLT["5M"]) && (diffInMinutes > 5 || diffInMinutes < -5)) {
                 return
             }
             // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
             // if(diffInMinutes < 0) return
             const kltDesc = getEKLTDesc(klt)
+            const rsiThresholds = RSIThresholds[stockType][klt]
+
             const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
-            if (Number(item?.[1]) <= 20) {
+            if (Number(item?.[1]) <= rsiThresholds.mustBuy) {
               return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 立即买入🚀`;
-            } else if (Number(item?.[1]) <= 25) {
+            } else if (Number(item?.[1]) <= rsiThresholds.buy) {
               return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 建议买入🔥`;
-            } else if (Number(item?.[1]) >= 90) {
+            } else if (Number(item?.[1]) >= rsiThresholds.mustSell) {
               return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 立即卖出😱`;
-            } else if (Number(item?.[1]) >= 85) {
+            } else if (Number(item?.[1]) >= rsiThresholds.sell) {
               return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 建议卖出🚨`;
             }
           }).filter(item => !!item);
@@ -166,7 +231,7 @@ export const fetchRSIAndSendEmail = async ({
             const bAction = b.includes('建议买入') ? 0 : 1;
             return aAction - bAction;
           });
-          console.log("🚀 ~ handler ~ 发送邮件 \n", targetRSIData.join('\n'));
+          console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 发送邮件`, targetRSIData?.length);
 
           const mailOptions = {
             from: `[${stockType}][15RSI]<1175166300@qq.com>`, // 发件人地址
@@ -180,7 +245,7 @@ export const fetchRSIAndSendEmail = async ({
               console.log(error);
               return;
             }
-            console.log(`Message sent: ${info.messageId}`);
+            console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] Message sent: ${info.messageId}`);
           });
         }
         return targetRSIData

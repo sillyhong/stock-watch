@@ -15,12 +15,16 @@ export enum EStockType {
 
 
   export enum EKLT  {
+    '5M' = 5,
     '15M' = 15,
     'DAY' = 101
   }
 
+
   export const getEKLTDesc = (klt: EKLT) => {
-    if(klt === EKLT["15M"]) {
+    if(klt === EKLT["5M"]) {
+      return '5RSI'
+    }else if(klt === EKLT["15M"]) {
       return '15RSI'
     }else if (klt === EKLT.DAY){
       return 'DAYRSI'
