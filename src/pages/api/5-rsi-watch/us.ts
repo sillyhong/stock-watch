@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData
 
     if (isEmpty(USTask)) {
-      USTask = cron.schedule('3 */5 * * * 1-5', ()=>{
+      USTask = cron.schedule('*/5 22-23,0-4 * * 1-5', ()=>{
         fetchUSRSI({
           klt: EKLT['5M'],
           currentDate: dayjs()

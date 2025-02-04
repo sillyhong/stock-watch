@@ -183,6 +183,7 @@ export const fetchRSIAndSendEmail = async ({
         
       ) : [];
         const results = await Promise.all(requests);
+        const kltDesc = getEKLTDesc(klt)
     
         results?.forEach(eastmoneyData => {
           const sourceData = eastmoneyData?.data?.data;
@@ -206,7 +207,6 @@ export const fetchRSIAndSendEmail = async ({
             }
             // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
             // if(diffInMinutes < 0) return
-            const kltDesc = getEKLTDesc(klt)
             const rsiThresholds = RSIThresholds[stockType][klt]
 
             const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
@@ -234,7 +234,7 @@ export const fetchRSIAndSendEmail = async ({
           console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 发送邮件`, targetRSIData?.length);
 
           const mailOptions = {
-            from: `[${stockType}][15RSI]<1175166300@qq.com>`, // 发件人地址
+            from: `[${stockType}][${kltDesc}]<1175166300@qq.com>`, // 发件人地址
             to: '1175166300@qq.com', // 收件人地址
             subject: dayjs(currentDate).format('YYYY-MM-DD HH:mm'), // 邮件主题
             text: targetRSIData.join('\n'), // 邮件内容
