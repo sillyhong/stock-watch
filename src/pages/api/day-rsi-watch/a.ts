@@ -16,7 +16,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ATask = cron.schedule('0 17 * * 1-5', ()=>{
         fetchARSI({
           klt: EKLT.DAY,
-          currentDate: dayjs().subtract(30,'day') 
+          currentDate: dayjs() 
         })
       }, {
         timezone: "Asia/Shanghai",
@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
-    rsiData = await fetchARSI({klt: EKLT.DAY,sendEmail: false, currentDate: dayjs().subtract(30,'day')})
+    rsiData = await fetchARSI({klt: EKLT.DAY,sendEmail: false})
 
     res.status(200).json({ message: 'Cron job set to check RSI every workday.', data: rsiData });
   } else if (req.method === 'DELETE') {

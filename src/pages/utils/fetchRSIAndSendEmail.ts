@@ -6,6 +6,7 @@ import { EStockType, MarketType, EKLT, getEKLTDesc } from "../interface";
 import { isTodayWorkday } from "./workday";
 import { QQMail } from "./email";
 import { StockLists } from "./stockList";
+import { PrePullDayConfig } from "./config";
 
 
 export const MarketOpenSetting = {
@@ -165,8 +166,9 @@ export const fetchRSIAndSendEmail = async ({
 }) => {
       const targetRSIData: any[] =[]
       // 需要前6个周期的值，需要向前几天拉取数据
-      const startFormatDay = dayjs(currentDate).subtract(7,'day').format('YYYYMMDD');
-      const endFormatDay = dayjs(currentDate).format('YYYYMMDD');
+      const prePullDay = PrePullDayConfig[stockType][klt]
+      const startFormatDay = dayjs(currentDate).subtract(prePullDay,'day').format('YYYYMMDD');
+      // const endFormatDay = dayjs(currentDate).format('YYYYMMDD');
      
       const requests = stockLists.length > 0 ? stockLists.map(stockId =>  {
         const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
