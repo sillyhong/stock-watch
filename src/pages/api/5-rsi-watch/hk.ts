@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     rsiData = await fetchHKRSI({ klt: EKLT['5M'], sendEmail: false})
 
-    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.', data: rsiData });
+    res.status(200).json({ message: 'Cron job set to check RSI every 5 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {
     if (HTask) {
       HTask.stop();

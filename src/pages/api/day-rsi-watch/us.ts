@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      await fetchUSRSI({klt: EKLT.DAY, sendEmail: false, currentDate: dayjs()})
+      await fetchUSRSI({klt: EKLT.DAY, sendEmail: false})
     }
     res.status(200).json({ message: 'Cron job set to check RSI every workday.' });
   } else if (req.method === 'DELETE') {

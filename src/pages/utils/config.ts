@@ -83,17 +83,17 @@ export const RSIThresholds = {
 export const PrePullDayConfig = {
     [EStockType.A]: {
         [EKLT['5M']]: 7,
-        [EKLT['15M']]: 14,
-        [EKLT['DAY']]: 30,
+        [EKLT['15M']]: 14,// 检查正确 至少 15条数据
+        [EKLT['DAY']]: 90,// 最新的几天准确，距离越长不准确
     },
     [EStockType.HK]: {
-        [EKLT['5M']]: 7,
-        [EKLT['15M']]: 7,
-        [EKLT['DAY']]: 30,
+        [EKLT['5M']]: 7, // 检查正确
+        [EKLT['15M']]: 14, // 检查正确
+        [EKLT['DAY']]: 90,// 不正确
     },
     [EStockType.US]: {
         [EKLT['5M']]: 7,
-        [EKLT['15M']]: 7,
+        [EKLT['15M']]: 14,
         [EKLT['DAY']]: 30,
     },
 }

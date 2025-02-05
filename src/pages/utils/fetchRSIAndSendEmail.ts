@@ -1,6 +1,7 @@
 import axios from "axios";
 import { formatKlinesData } from "./formatKlines";
-import { GetConvert } from "@/modules/tools/indicator/old";
+// import { GetConvert } from "@/modules/tools/indicator/old";
+import { GetConvert } from "@/modules/tools/indicator/origin_old";
 import dayjs, { Dayjs } from "dayjs";
 import { EStockType, MarketType, EKLT, getEKLTDesc } from "../interface";
 import { isTodayWorkday } from "./workday";
@@ -208,7 +209,6 @@ export const fetchRSIAndSendEmail = async ({
                 return
             }
             // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
-            // if(diffInMinutes < 0) return
             const rsiThresholds = RSIThresholds[stockType][klt]
 
             const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
