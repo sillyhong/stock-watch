@@ -23,7 +23,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
-    rsiData = await fetchARSI({ klt: EKLT['5M'], sendEmail: false, currentDate: dayjs().subtract(8, 'day')})
+    rsiData = await fetchARSI({ klt: EKLT['5M'], sendEmail: false})
 
     res.status(200).json({ message: 'Cron job set to check RSI every 5 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {

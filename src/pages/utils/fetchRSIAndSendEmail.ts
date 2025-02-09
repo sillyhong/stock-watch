@@ -187,7 +187,10 @@ export const fetchRSIAndSendEmail = async ({
       ) : [];
         const results = await Promise.all(requests);
         const kltDesc = getEKLTDesc(klt)
-    
+        let emailContent
+        const buyList: any[] = [];
+        const sellList: any[] = [];
+
         results?.forEach(eastmoneyData => {
           const sourceData = eastmoneyData?.data?.data;
           // console.log("🚀 ~ sourceData:", sourceData)
@@ -199,47 +202,76 @@ export const fetchRSIAndSendEmail = async ({
           const RSIData = formatKlinesData(sourceData);
           const fullKlinesData = GetConvert('RSI', RSIData.full_klines);
           // console.log("🚀 ~ stockName:",stockName, 'fullKlinesData:', fullKlinesData)
-    
           const stockRSIData = fullKlinesData?.map(item => {
             const itemTime = dayjs(item[0]);
+            // currentDate - itemTime
             const diffInMinutes = currentDate.diff(itemTime, 'minute');
             
             // 15min RSI 只保留0-5分钟内的数据
             if((klt === EKLT["15M"] || klt === EKLT["5M"]) && (diffInMinutes > 5 || diffInMinutes < -5)) {
                 return
             }
+
+            if(klt === EKLT["DAY"]  && (diffInMinutes > 38000 || diffInMinutes < -5)) {
+              return
+            }
+
             // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
             const rsiThresholds = RSIThresholds[stockType][klt]
 
             const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
+            let suggestion = '';
             if (Number(item?.[1]) <= rsiThresholds.mustBuy) {
-              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 立即买入🚀`;
+              suggestion = '立即买入🚀';
+              buyList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: green; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: red;">${suggestion}</td></tr>`);
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 立即买入🚀`;
             } else if (Number(item?.[1]) <= rsiThresholds.buy) {
-              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 建议买入🔥`;
+              suggestion = '建议买入🔥';
+              buyList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: green; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: orange;">${suggestion}</td></tr>`);
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 建议买入🔥`;
             } else if (Number(item?.[1]) >= rsiThresholds.mustSell) {
-              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 立即卖出😱`;
+              suggestion = '立即卖出😱';
+              sellList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: red; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: red;">${suggestion}</td></tr>`);
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 立即卖出😱`;
             } else if (Number(item?.[1]) >= rsiThresholds.sell) {
-              return `[${item[0]}] [${kltDesc}] <a href="${stockLink}">${stockName}</a>: ${item[1]} ➜ 建议卖出🚨`;
+              suggestion = '建议卖出🚨';
+              sellList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: red; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: orange;">${suggestion}</td></tr>`);
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 建议卖出🚨`;
             }
-          }).filter(item => !!item);
-    
+
+          })?.filter(item => !!item);
+
           targetRSIData.push(...stockRSIData);
-        });
 
-        if (targetRSIData.length && sendEmail) {
-
-          targetRSIData.sort((a, b) => {
-            const aAction = a.includes('建议买入') ? 0 : 1;
-            const bAction = b.includes('建议买入') ? 0 : 1;
-            return aAction - bAction;
+        })
+        if ((buyList?.length || sellList?.length) && sendEmail) {
+          // Sort buyList: '立即买入🚀' should come first
+          buyList.sort((a, b) => {
+            if (a.includes('立即买入🚀') && !b.includes('立即买入🚀')) return -1;
+            if (!a.includes('立即买入🚀') && b.includes('立即买入🚀')) return 1;
+            return 0;
           });
+
+          // Sort sellList: '立即卖出😱' should come first
+          sellList.sort((a, b) => {
+            if (a.includes('立即卖出😱') && !b.includes('立即卖出😱')) return -1;
+            if (!a.includes('立即卖出😱') && b.includes('立即卖出😱')) return 1;
+            return 0;
+          });
+          const tableStyle = "border-collapse: collapse";
+          const thStyle = "border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2; text-align: center";
+          const tdStyle = "text-align: center;";
+          
+          const buyTable = buyList.length ? `<table style="${tableStyle}"><tr><th style="${thStyle}">时间</th><th style="${thStyle}">指标</th><th style="${thStyle}">名字</th><th style="${thStyle}">RSI值</th><th style="${thStyle}">买入建议</th></tr>${buyList.map(row => `<tr>${row.split('</td><td>').map(cell => `<td style="${tdStyle}">${cell}</td>`).join('')}</tr>`).join('')}</table>` : '';
+          const sellTable = sellList.length ? `<table style="${tableStyle}"><tr><th style="${thStyle}">时间</th><th style="${thStyle}">指标</th><th style="${thStyle}">名字</th><th style="${thStyle}">RSI值</th><th style="${thStyle}">卖出建议</th></tr>${sellList.map(row => `<tr>${row.split('</td><td>').map(cell => `<td style="${tdStyle}">${cell}</td>`).join('')}</tr>`).join('')}</table>` : '';
+          emailContent = `${buyTable}${sellTable}`;
           console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 发送邮件`, targetRSIData?.length);
 
           const mailOptions = {
             from: `[${stockType}][${kltDesc}]<1175166300@qq.com>`, // 发件人地址
             to: '1175166300@qq.com', // 收件人地址
             subject: dayjs(currentDate).format('YYYY-MM-DD HH:mm'), // 邮件主题
-            text: targetRSIData.join('\n'), // 邮件内容
+            text: emailContent, // 邮件内容
           };
     
           QQMail.sendMail(mailOptions, (error: any, info: any) => {
@@ -249,6 +281,6 @@ export const fetchRSIAndSendEmail = async ({
             }
             console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] Message sent: ${info.messageId}`);
           });
-        }
+         }
         return targetRSIData
     };
