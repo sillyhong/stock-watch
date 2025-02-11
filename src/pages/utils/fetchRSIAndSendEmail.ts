@@ -128,10 +128,9 @@ const prehandleFetch = async ({
     //       return `[${stockType}] Market is currently closed`;
     //   }
     // }
-   
-
+  //  console.log('StockLists123', 'klt', klt, 'stockType', stockType,StockLists[klt as keyof typeof StockLists][stockType])
     return await fetchRSIAndSendEmail({
-        stockLists: StockLists[stockType],
+        stockLists: StockLists[klt as keyof typeof StockLists][stockType],
         currentDate,
         sendEmail,
         stockType,
@@ -212,7 +211,8 @@ export const fetchRSIAndSendEmail = async ({
                 return
             }
 
-            if(klt === EKLT["DAY"]  && (diffInMinutes > 38000 || diffInMinutes < -5)) {
+            //3天内
+            if(klt === EKLT["DAY"]  && (diffInMinutes > 6000 || diffInMinutes < -5)) {
               return
             }
 

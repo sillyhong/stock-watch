@@ -1,4 +1,6 @@
-import { EStockType } from "../interface"
+import { a_beijiaosuo } from "../data/astock/beijiaosuo"
+import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi"
+import { EKLT, EStockType } from "../interface"
 
 
 // 自选股 https://quote.eastmoney.com/zixuan/?from=home  (https://myfavor.eastmoney.com/v4/webouter/gstkinfos?appkey=e9166c7e9cdfad3aa3fd7d93b757e9b1&cb=jQuery37109098349407811925_1738471725338&g=1&_=1738471725340)
@@ -94,13 +96,15 @@ export const HKStockList = [
     '116.02015', // 理想汽车-W
     '116.00981', // 中心国际
     '116.01347',// 华虹半导体
-    '116.01918', // 融创中国
+    '116.01918', // 融创中国 // todo 2.10 5分钟没推送
     '116.03896',// 金山云
     '116.02498', // 速腾聚创
     '116.06682', // 第四范式
     '116.01024',// 快手-W
     '116.06099',// 招商银行
     '116.02252',// 微创机器人-B
+    '116.02013',// 微盟集团
+    '116.02533',// 黑芝麻智能
   ]
 
 // https://quote.eastmoney.com/newapi/gethotgubalist_us
@@ -122,10 +126,22 @@ export const USStockList = [
 
 
 export const StockLists = {
+  [EKLT["5M"]] : {
     [EStockType.A]: AStockList,
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
-   } 
+  },
+  [EKLT["15M"]] : {
+    [EStockType.A]: [...AStockList, ...a_xiaofeidianzi,...a_beijiaosuo],
+    [EStockType.HK]: HKStockList,
+    [EStockType.US]: USStockList,
+  },
+  [EKLT["DAY"]] : {
+    [EStockType.A]: AStockList,
+    [EStockType.HK]: HKStockList,
+    [EStockType.US]: USStockList,
+  },
+ } 
 
 
    // 自选
