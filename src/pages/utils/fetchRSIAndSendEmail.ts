@@ -207,7 +207,7 @@ export const fetchRSIAndSendEmail = async ({
             const diffInMinutes = currentDate.diff(itemTime, 'minute');
             
             // 15min RSI 只保留0-5分钟内的数据
-            if((klt === EKLT["15M"] || klt === EKLT["5M"]) && (diffInMinutes > 5 || diffInMinutes < -5)) {
+            if((klt === EKLT["15M"] || klt === EKLT["5M"]) && (diffInMinutes >= 5 || diffInMinutes < -5)) {
                 return
             }
 
