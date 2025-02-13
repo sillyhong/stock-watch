@@ -6,7 +6,7 @@
 
 import cloneDeep from 'lodash/cloneDeep'
 
-export function GetConvert(type, bodys2, options? = {}):any[][] {
+export function GetConvert(type, bodys2, options = {}):any[][] {
 
 
     
@@ -206,7 +206,7 @@ export function GetConvert(type, bodys2, options? = {}):any[][] {
     }
     return data;
 }
-function Convert(bodys, options? = {}) {
+function Convert(bodys, options = {}) {
     if ((bodys == null) || (bodys.length == 0)) {
         console.log("历史行情数据不能为空", options);
     }
