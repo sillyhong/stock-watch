@@ -2,11 +2,11 @@ import { EKLT, EStockType } from "../interface"
 
 export const MarketOpenSetting = {
  [EStockType.A]: {
-  marketOpenHour: '09:30',
+  marketOpenHour: '09:25',
   marketCloseHour: '15:00',
  },
  [EStockType.HK]: {
-  marketOpenHour: '09:30',
+  marketOpenHour: '09:25',
   marketCloseHour: '16:00',
  },
  [EStockType.US]: {

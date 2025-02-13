@@ -9,6 +9,7 @@ import { QQMail } from "./email";
 import { StockLists } from "./stockList";
 import { PrePullDayConfig } from "./config";
 import { a_beijiaosuo } from "../data/astock/beijiaosuo";
+import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi";
 
 
 export const MarketOpenSetting = {
@@ -232,14 +233,14 @@ export const fetchRSIAndSendEmail = async ({
               return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 建议买入🔥`;
             } else if (Number(item?.[1]) >= rsiThresholds.mustSell) {
               //15分钟 不发送北交所卖出
-              if(klt === EKLT["15M"] && a_beijiaosuo.some(item=> item.includes(stockCode))) return 
+              if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return 
 
               suggestion = '立即卖出😱';
               sellList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: red; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: red;">${suggestion}</td></tr>`);
               return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 立即卖出😱`;
             } else if (Number(item?.[1]) >= rsiThresholds.sell) {
                //15分钟 不发送北交所卖出
-              if(klt === EKLT["15M"] && a_beijiaosuo.some(item=> item.includes(stockCode))) return
+              if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return
 
               suggestion = '建议卖出🚨';
               sellList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: red; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: orange;">${suggestion}</td></tr>`);
