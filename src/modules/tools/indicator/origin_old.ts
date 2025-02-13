@@ -6,7 +6,7 @@
 
 import cloneDeep from 'lodash/cloneDeep'
 
-export function GetConvert(type, bodys2):any[][] {
+export function GetConvert(type, bodys2, options? = {}):any[][] {
 
 
     
@@ -28,7 +28,7 @@ export function GetConvert(type, bodys2):any[][] {
         return countMACD(bodys)
     }
 
-    const converts = Convert(bodys);
+    const converts = Convert(bodys, options);
     
 
     const data = [];
@@ -206,15 +206,15 @@ export function GetConvert(type, bodys2):any[][] {
     }
     return data;
 }
-function Convert(bodys) {
+function Convert(bodys, options? = {}) {
     if ((bodys == null) || (bodys.length == 0)) {
-        console.log("历史行情数据不能为空");
+        console.log("历史行情数据不能为空", options);
     }
-    var entities = bodys;
-    var len = bodys.length;
+    const entities = bodys;
+    const len = bodys.length;
 
-    var RSI_UP, RSI_DN;
-    for (var i = 0; i < len; i++) {
+    let RSI_UP, RSI_DN;
+    for (let i = 0; i < len; i++) {
         if (i > 0) {
             RSI_UP = Math.max(entities[i].close - entities[i - 1].close, 0);
             RSI_DN = Math.abs(entities[i].close - entities[i - 1].close);

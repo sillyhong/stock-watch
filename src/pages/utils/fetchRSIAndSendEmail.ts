@@ -200,7 +200,7 @@ export const fetchRSIAndSendEmail = async ({
           const marketType = MarketType[market]
 
           const RSIData = formatKlinesData(sourceData);
-          const fullKlinesData = GetConvert('RSI', RSIData.full_klines);
+          const fullKlinesData = GetConvert('RSI', RSIData.full_klines, { market, stockCode, stockName, kltDesc});
           // console.log("🚀 ~ stockName:",stockName, 'fullKlinesData:', fullKlinesData)
           const stockRSIData = fullKlinesData?.map(item => {
             const itemTime = dayjs(item[0]);
@@ -272,7 +272,6 @@ export const fetchRSIAndSendEmail = async ({
           const buyTable = buyList.length ? `<table style="${tableStyle}"><tr><th style="${thStyle}">时间</th><th style="${thStyle}">指标</th><th style="${thStyle}">名字</th><th style="${thStyle}">RSI值</th><th style="${thStyle}">买入建议</th></tr>${buyList.map(row => `<tr>${row.split('</td><td>').map(cell => `<td style="${tdStyle}">${cell}</td>`).join('')}</tr>`).join('')}</table>` : '';
           const sellTable = sellList.length ? `<table style="${tableStyle}"><tr><th style="${thStyle}">时间</th><th style="${thStyle}">指标</th><th style="${thStyle}">名字</th><th style="${thStyle}">RSI值</th><th style="${thStyle}">卖出建议</th></tr>${sellList.map(row => `<tr>${row.split('</td><td>').map(cell => `<td style="${tdStyle}">${cell}</td>`).join('')}</tr>`).join('')}</table>` : '';
           emailContent = `${buyTable}${sellTable}`;
-          console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 发送邮件`, targetRSIData?.length);
 
           const mailOptions = {
             from: `[${stockType}][${kltDesc}]<1175166300@qq.com>`, // 发件人地址
@@ -286,7 +285,8 @@ export const fetchRSIAndSendEmail = async ({
               console.log(error);
               return;
             }
-            console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] Message sent: ${info.messageId}`);
+          console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] ${kltDesc}发送邮件`, targetRSIData?.length);
+            // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] Message sent: ${info.messageId}`);
           });
          }
         return targetRSIData
