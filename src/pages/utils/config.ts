@@ -1,3 +1,4 @@
+import dayjs from "dayjs";
 import { EKLT, EStockType } from "../interface"
 
 export const MarketOpenSetting = {
@@ -14,6 +15,21 @@ export const MarketOpenSetting = {
   marketCloseHour: '04:00',
  },
 } 
+
+const isMarketOpen = (marketOpenHour: string, marketCloseHour: string, currentDate: Dayjs): boolean => {
+  const marketOpenTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketOpenHour}`, 'YYYY-MM-DD HH:mm:ss');
+  // 延长5s
+  let marketCloseTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketCloseHour}:05`, 'YYYY-MM-DD HH:mm:ss');
+
+  // If the market close time is earlier than the open time, it means the market closes after midnight
+  if (marketCloseTime.isBefore(marketOpenTime)) {
+      marketCloseTime = marketCloseTime.add(1, 'day');
+  }
+
+  console.log("🚀 ~ isMarketOpen ~ currentDate:", currentDate.format('YYYY-MM-DD HH:mm:ss'), 'marketOpenTime:', marketOpenTime.format('YYYY-MM-DD HH:mm:ss'), 'marketCloseTime:', (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)), (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime)));
+
+  return (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)) && (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime));
+};
 
 export const RSIThresholds = {
   [EStockType.A]: {
@@ -79,11 +95,18 @@ export const RSIThresholds = {
 }
 
 
+export enum ERSISuggestion {
+  MUST_BUY = '立即买入🚀',
+  BUY = '建议买入🔥',
+  MUST_SELL = '立即卖出😱',
+  SELL = '建议卖出🚨'
+}
+
 // 计算准确的RSI需要拉取前面几天的数据
 export const PrePullDayConfig = {
     [EStockType.A]: {
         [EKLT['5M']]: 7,
-        [EKLT['15M']]: 14,// 检查正确 至少 15条数据
+        [EKLT['15M']]: 60,// 检查正确 至少 15条数据
         [EKLT['DAY']]: 90,// 最新的几天准确，距离越长不准确
     },
     [EStockType.HK]: {

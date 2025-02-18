@@ -3,119 +3,29 @@ import { formatKlinesData } from "./formatKlines";
 // import { GetConvert } from "@/modules/tools/indicator/old";
 import { GetConvert } from "@/modules/tools/indicator/origin_old";
 import dayjs, { Dayjs } from "dayjs";
-import { EStockType, MarketType, EKLT, getEKLTDesc } from "../interface";
+import { EStockType, MarketType, EKLT, getEKLTDesc, IFetchUSRSIParams } from "../interface";
 import { isTodayWorkday } from "./workday";
-import { QQMail } from "./email";
+import { createEmailItem, QQMail } from "./email";
 import { StockLists } from "./stockList";
-import { PrePullDayConfig } from "./config";
+import { ERSISuggestion, PrePullDayConfig, RSIThresholds } from "./config";
 import { a_beijiaosuo } from "../data/astock/beijiaosuo";
 import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi";
+import { backtestRSI } from "./backtrend";
 
 
-export const MarketOpenSetting = {
- [EStockType.A]: {
-  marketOpenHour: '09:30',
-  marketCloseHour: '15:00',
- },
- [EStockType.HK]: {
-  marketOpenHour: '09:30',
-  marketCloseHour: '16:00',
- },
- [EStockType.US]: {
-  marketOpenHour: '22:30',
-  marketCloseHour: '04:00',
- },
-} 
-
-export const RSIThresholds = {
-  [EStockType.A]: {
-    [EKLT['5M']]: {
-      buy: 20,
-      mustBuy: 15,
-      sell: 85,
-      mustSell: 90 
-    },
-    [EKLT['15M']]: { 
-      buy: 25,
-      mustBuy: 20,
-      sell: 75,
-      mustSell: 85 
-    },
-    [EKLT['DAY']]: { 
-      buy: 20,
-      mustBuy: 15,
-      sell: 75,
-      mustSell: 80
-    }
-  },
-  [EStockType.HK]: {
-    [EKLT['5M']]: {
-      buy: 20,
-      mustBuy: 15,
-      sell: 85,
-      mustSell: 90 
-    },
-    [EKLT['15M']]: { 
-      buy: 20,
-      mustBuy: 15,
-      sell: 80,
-      mustSell: 90
-    },
-    [EKLT['DAY']]: { 
-      buy: 20,
-      mustBuy: 15,
-      sell: 75,
-      mustSell: 80 
-    }
-  },
-  [EStockType.US]: {
-    [EKLT['5M']]: {
-      buy: 20,
-      mustBuy: 15,
-      sell: 80,
-      mustSell: 90
-    },
-    [EKLT['15M']]: { 
-      buy: 20,
-      mustBuy: 15,
-      sell: 80,
-      mustSell: 90
-    },
-    [EKLT['DAY']]: { 
-      buy: 20,
-      mustBuy: 15,
-      sell: 80,
-      mustSell: 85
-    }
-  }
-}
-
-
-const isMarketOpen = (marketOpenHour: string, marketCloseHour: string, currentDate: Dayjs): boolean => {
-    const marketOpenTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketOpenHour}`, 'YYYY-MM-DD HH:mm:ss');
-    // 延长5s
-    let marketCloseTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketCloseHour}:05`, 'YYYY-MM-DD HH:mm:ss');
-
-    // If the market close time is earlier than the open time, it means the market closes after midnight
-    if (marketCloseTime.isBefore(marketOpenTime)) {
-        marketCloseTime = marketCloseTime.add(1, 'day');
-    }
-
-    console.log("🚀 ~ isMarketOpen ~ currentDate:", currentDate.format('YYYY-MM-DD HH:mm:ss'), 'marketOpenTime:', marketOpenTime.format('YYYY-MM-DD HH:mm:ss'), 'marketCloseTime:', (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)), (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime)));
-
-    return (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)) && (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime));
-};
 
 const prehandleFetch = async ({
   stockType,
   currentDate = dayjs(),
   sendEmail = true,
-  klt
+  klt,
+  isBacktesting = false
 }: {
   stockType: EStockType,
   klt: number,
   currentDate?: Dayjs,
-  sendEmail?: boolean
+  sendEmail?: boolean,
+  isBacktesting?: boolean
 }) => {
     const checkWorkdayRes = isTodayWorkday(stockType, currentDate.toDate());
 
@@ -137,18 +47,19 @@ const prehandleFetch = async ({
         sendEmail,
         stockType,
         klt,
+        isBacktesting,
     });
 }
 
-export const fetchUSRSI = async (params: {  klt: number, currentDate?: Dayjs, sendEmail?: boolean }) => {
+export const fetchUSRSI = async (params: IFetchUSRSIParams) => {
     return prehandleFetch({ stockType: EStockType.US, ...params });
 }
 
-export const fetchARSI = async (params: {  klt: number, currentDate?: Dayjs, sendEmail?: boolean }) => {
+export const fetchARSI = async (params: IFetchUSRSIParams) => {
     return prehandleFetch({ stockType: EStockType.A, ...params });
 }
 
-export const fetchHKRSI = async (params: {  klt: number, currentDate?: Dayjs, sendEmail?: boolean }) => {
+export const fetchHKRSI = async (params: IFetchUSRSIParams) => {
     return prehandleFetch({ stockType: EStockType.HK, ...params });
 }
 
@@ -159,12 +70,14 @@ export const fetchRSIAndSendEmail = async ({
   sendEmail = true,
   stockType,
   klt = EKLT['15M'],
+  isBacktesting = false
 }: {
   stockLists: string[],
   stockType: EStockType,
+  klt: EKLT,
   currentDate?: Dayjs,
   sendEmail?: boolean,
-  klt: EKLT,
+  isBacktesting?: boolean
 }) => {
       const targetRSIData: any[] =[]
       // 需要前6个周期的值，需要向前几天拉取数据
@@ -173,7 +86,7 @@ export const fetchRSIAndSendEmail = async ({
       // const endFormatDay = dayjs(currentDate).format('YYYYMMDD');
      
       const requests = stockLists.length > 0 ? stockLists.map(stockId =>  {
-        const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
+        const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f59&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
         // console.log("🚀 ~ reqUrl:", reqUrl)
         return axios.get(reqUrl, {
           headers: {
@@ -207,10 +120,16 @@ export const fetchRSIAndSendEmail = async ({
             const itemTime = dayjs(item[0]);
             // currentDate - itemTime
             const diffInMinutes = currentDate.diff(itemTime, 'minute');
+            let backtestingStr = ''
+            // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes,)
             
             // 15min RSI 只保留0-5分钟内的数据
-            if((klt === EKLT["15M"] || klt === EKLT["5M"]) && (diffInMinutes > 4 || diffInMinutes < -4)) {
-                return
+            if((klt === EKLT["15M"] || klt === EKLT["5M"])) {
+              if(isBacktesting) {// 接近三天
+                if(diffInMinutes > 5000) return
+              }else {
+                if((diffInMinutes > 4 || diffInMinutes < -4)) return
+              }
             }
 
             //3天内
@@ -218,33 +137,39 @@ export const fetchRSIAndSendEmail = async ({
               return
             }
 
-            // console.log("🚀 ~ stockname:", stockName,'itemTime',dayjs(itemTime).format('YYYY-MM-DD HH:mm:ss'), 'currentDate',dayjs(currentDate).format('YYYY-MM-DD HH:mm:ss'), 'diffInMinutes',diffInMinutes, 'item',item)
+            const sourceItem = RSIData?.full_klines?.find(item => dayjs(item?.date).isSame(itemTime, 'minute'));
             const rsiThresholds = RSIThresholds[stockType][klt]
 
             const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
-            let suggestion = '';
             if (Number(item?.[1]) <= rsiThresholds.mustBuy) {
-              suggestion = '立即买入🚀';
-              buyList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: green; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: red;">${suggestion}</td></tr>`);
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 立即买入🚀`;
+            
+              if(isBacktesting) {
+                const backData = backtestRSI(sourceItem, RSIData?.full_klines, stockType)
+                const nextDayStr = `${backData?.nextdayPercentageProfit ? 'next: ' + backData?.nextdayPercentageProfit : ''}`
+                backtestingStr = `today: ${backData?.todayPercentageProfit} ${nextDayStr}`
+              }
+              buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_BUY, backtestingStr));
+
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ ${ERSISuggestion.MUST_BUY} ${backtestingStr}`;
             } else if (Number(item?.[1]) <= rsiThresholds.buy) {
-              suggestion = '建议买入🔥';
-              buyList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: green; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: orange;">${suggestion}</td></tr>`);
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 建议买入🔥`;
-            } else if (Number(item?.[1]) >= rsiThresholds.mustSell) {
+              if(isBacktesting) {
+                const backData = backtestRSI(sourceItem, RSIData?.full_klines, stockType)
+                const nextDayStr = `${backData?.nextdayPercentageProfit ? 'next: ' + backData?.nextdayPercentageProfit : ''}`
+                backtestingStr = `today: ${backData?.todayPercentageProfit} ${nextDayStr} `
+              }
+             buyList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.BUY, backtestingStr));
+
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ ${ERSISuggestion.BUY} ${backtestingStr}`;
+            } else if (Number(item?.[1]) >= rsiThresholds.mustSell && !isBacktesting) { // 回测不需要卖出信息
               //15分钟 不发送北交所卖出
               if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return 
-
-              suggestion = '立即卖出😱';
-              sellList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: red; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: red;">${suggestion}</td></tr>`);
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 立即卖出😱`;
-            } else if (Number(item?.[1]) >= rsiThresholds.sell) {
+              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.MUST_SELL));
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ ${ERSISuggestion.MUST_SELL}`;
+            } else if (Number(item?.[1]) >= rsiThresholds.sell && !isBacktesting) { // 回测不需要卖出信息
                //15分钟 不发送北交所卖出
               if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return
-
-              suggestion = '建议卖出🚨';
-              sellList.push(`<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: red; text-decoration: none;">${stockName}</a></td><td>${item[1]}</td><td style="color: orange;">${suggestion}</td></tr>`);
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ 建议卖出🚨`;
+              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.SELL));
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} ➜ ${ERSISuggestion.SELL}`;
             }
 
           })?.filter(item => !!item);
@@ -255,15 +180,15 @@ export const fetchRSIAndSendEmail = async ({
         if ((buyList?.length || sellList?.length) && sendEmail) {
           // Sort buyList: '立即买入🚀' should come first
           buyList.sort((a, b) => {
-            if (a.includes('立即买入🚀') && !b.includes('立即买入🚀')) return -1;
-            if (!a.includes('立即买入🚀') && b.includes('立即买入🚀')) return 1;
+            if (a.includes(ERSISuggestion.MUST_BUY) && !b.includes(ERSISuggestion.MUST_BUY)) return -1;
+            if (!a.includes(ERSISuggestion.MUST_BUY) && b.includes(ERSISuggestion.MUST_BUY)) return 1;
             return 0;
           });
 
           // Sort sellList: '立即卖出😱' should come first
           sellList.sort((a, b) => {
-            if (a.includes('立即卖出😱') && !b.includes('立即卖出😱')) return -1;
-            if (!a.includes('立即卖出😱') && b.includes('立即卖出😱')) return 1;
+            if (a.includes(ERSISuggestion.MUST_SELL) && !b.includes(ERSISuggestion.MUST_SELL)) return -1;
+            if (!a.includes(ERSISuggestion.MUST_SELL) && b.includes(ERSISuggestion.MUST_SELL)) return 1;
             return 0;
           });
           const tableStyle = "border-collapse: collapse";
@@ -277,7 +202,7 @@ export const fetchRSIAndSendEmail = async ({
           const mailOptions = {
             from: `[${stockType}][${kltDesc}]<1175166300@qq.com>`, // 发件人地址
             to: '1175166300@qq.com', // 收件人地址
-            subject: dayjs(currentDate).format('YYYY-MM-DD HH:mm'), // 邮件主题
+            subject: `${dayjs(currentDate).format('YYYY-MM-DD HH:mm')}[${stockType}][${kltDesc}]`, // 邮件主题
             text: emailContent, // 邮件内容
           };
     

@@ -6,6 +6,7 @@ import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
 let ATask: cron.ScheduledUSTask;
+let AMorningTask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
@@ -21,6 +22,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
+    }
+
+    if(isEmpty(AMorningTask)) {
+      AMorningTask = cron.schedule('25 9 * * 1-5', ()=>{
+        fetchARSI({
+          klt: EKLT['15M'],
+          currentDate: dayjs()
+        })
+      }, {
+        timezone: "Asia/Shanghai",
+        scheduled: true
+      }); 
     }
     
     rsiData = await fetchARSI({ klt: EKLT['15M'], sendEmail: false})

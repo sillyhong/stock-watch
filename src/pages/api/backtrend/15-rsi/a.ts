@@ -1,48 +1,36 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import cron from 'node-cron';
 import isEmpty from "lodash/isEmpty";
-import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
+import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
-let HTask: cron.ScheduledUSTask;
-let HMorningTask: cron.ScheduledUSTask;
-
+let ATBackTrendask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     let rsiData: any
-    console.log('isEmpty(HTask)',isEmpty(HTask))
-    if (isEmpty(HTask)) {
-      HTask = cron.schedule('*/15 9-16 * * 1-5', ()=>{
-        fetchHKRSI({
+    console.log('isEmpty(ATBackTrendask)',isEmpty(ATBackTrendask))
+    if (isEmpty(ATBackTrendask)) {
+      ATBackTrendask = cron.schedule('1 17 * * 1-5', ()=>{
+        fetchARSI({
           klt: EKLT['15M'],
-          currentDate: dayjs()
+          currentDate: dayjs(),
+          isBacktesting: true,
         })
       }, {
         timezone: "Asia/Shanghai",
         scheduled: true
       });
     }
-
-    if(isEmpty(HMorningTask)) {
-      HMorningTask = cron.schedule('25 9 * * 1-5', ()=>{
-        fetchHKRSI({
-          klt: EKLT['15M'],
-          currentDate: dayjs()
-        })
-      }, {
-        timezone: "Asia/Shanghai",
-        scheduled: true
-      }); 
-    }
-    rsiData = await fetchHKRSI({ klt: EKLT['15M'], sendEmail: false})
+    
+    // rsiData = await fetchARSI({ klt: EKLT['15M'], sendEmail: true, isBacktesting: true})
 
     res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {
-    if (HTask) {
-      HTask.stop();
-      HTask = null;
+    if (ATBackTrendask) {
+      ATBackTrendask.stop();
+      ATBackTrendask = null;
       res.status(200).json({ message: 'Cron job has been stopped.' });
     } else {
       res.status(400).json({ message: 'Cron job is not running.' });

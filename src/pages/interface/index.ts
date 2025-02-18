@@ -1,3 +1,5 @@
+import { Dayjs } from "dayjs"
+
 export enum EStockType {
     A = 'A',
     HK = 'HK',
@@ -30,3 +32,12 @@ export enum EStockType {
       return 'DAYRSI'
     }
   }
+
+
+  export interface IFetchUSRSIParams  {
+      klt: number, 
+      currentDate?: Dayjs, 
+      sendEmail?: boolean,
+      isBacktesting?: boolean,
+  }
+
