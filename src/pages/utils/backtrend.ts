@@ -19,13 +19,22 @@ export const backtestRSI = (currentData, rsiData, stockType) => {
     
     
     const closeHour = closeHourConfig[stockType]
+    let compareDate
     // Find the index of the current date in the rsiData
-    const currentIndex = rsiData.findIndex(data => data.date === `${currentDate.split(' ')[0]} ${closeHour}:00`);
+    if(stockType === EStockType.US ){
+        const currentHour = dayjs(currentData?.date).hour();
+        const currentUSDate =  Number(currentHour) <= 4 ? dayjs(currentDate) : dayjs(currentDate).add(1, 'day') 
+        compareDate = `${dayjs(currentUSDate)?.format('YYYY-MM-DD')} 04:00` 
+    }else {
+        compareDate = `${currentDate.split(' ')[0]} ${closeHour}:00`
+    }
+    // console.log('123', rsiData.map(item=> item.date))
+    const currentIndex = rsiData.findIndex(data => data?.date === compareDate);
     //取出下一天的index
     const nextIndex = currentIndex + 1
-    // console.log("🚀 ~ backtestRSI ~ nextIndex:", nextIndex, 'rsiData[nextIndex]', rsiData[nextIndex], rsiData?.length)
+    // console.log("🚀 ~ backtestRSI ~ currentIndex:", currentIndex, 'nextIndex', nextIndex, compareDate, 'time',`${currentDate.split(' ')[0]} ${closeHour}:00`)
     if(rsiData[nextIndex]) {
-        nextday = rsiData[nextIndex].date
+        nextday = stockType === EStockType.US ? dayjs(rsiData[nextIndex].date).add(1, 'day') : dayjs(rsiData[nextIndex].date)
         nextday = dayjs(nextday).set('hour', closeHour).set('minute', 0).format('YYYY-MM-DD HH:mm')
     }
     if (currentIndex !== -1) {
