@@ -19,9 +19,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      await fetchUSRSI({klt: EKLT.DAY, sendEmail: false})
+
+      // await fetchUSRSI({klt: EKLT.DAY, sendEmail: false})
+
     }
-    res.status(200).json({ message: 'Cron job set to check RSI every workday.' });
+    res.status(200).json({ message: 'Cron job set to check US RSI every workday.' });
   } else if (req.method === 'DELETE') {
     if (USTask) {
       USTask.stop();

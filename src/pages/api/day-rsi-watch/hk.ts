@@ -22,9 +22,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         scheduled: true
       });
     }
-    rsiData = await fetchHKRSI({klt: EKLT.DAY, sendEmail: false })
+    // rsiData = await fetchHKRSI({klt: EKLT.DAY, sendEmail: false })
 
-    res.status(200).json({ message: 'Cron job set to check RSI every workday.', data: rsiData });
+    res.status(200).json({ message: 'Cron job set to check HK RSI every workday.', data: rsiData });
   } else if (req.method === 'DELETE') {
     if (HTask) {
       HTask.stop();

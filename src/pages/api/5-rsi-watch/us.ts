@@ -21,9 +21,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      rsiData = await fetchUSRSI({ klt: EKLT['5M'], sendEmail: false})
+      // rsiData = await fetchUSRSI({ klt: EKLT['5M'], sendEmail: false})
     }
-    res.status(200).json({ message: 'Cron job set to check RSI every 5 minutes.',data: rsiData });
+    res.status(200).json({ message: 'Cron job set to check US RSI every 5 minutes.',data: rsiData });
   } else if (req.method === 'DELETE') {
     if (USTask) {
       USTask.stop();

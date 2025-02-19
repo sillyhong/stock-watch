@@ -11,6 +11,7 @@ import { ERSISuggestion, PrePullDayConfig, RSIThresholds } from "./config";
 import { a_beijiaosuo } from "../data/astock/beijiaosuo";
 import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi";
 import { backtestRSI } from "./backtrend";
+import { sortByStockName, sortListBySuggestion } from "./sort";
 
 
 
@@ -178,19 +179,13 @@ export const fetchRSIAndSendEmail = async ({
 
         })
         if ((buyList?.length || sellList?.length) && sendEmail) {
-          // Sort buyList: '立即买入🚀' should come first
-          buyList.sort((a, b) => {
-            if (a.includes(ERSISuggestion.MUST_BUY) && !b.includes(ERSISuggestion.MUST_BUY)) return -1;
-            if (!a.includes(ERSISuggestion.MUST_BUY) && b.includes(ERSISuggestion.MUST_BUY)) return 1;
-            return 0;
-          });
-
-          // Sort sellList: '立即卖出😱' should come first
-          sellList.sort((a, b) => {
-            if (a.includes(ERSISuggestion.MUST_SELL) && !b.includes(ERSISuggestion.MUST_SELL)) return -1;
-            if (!a.includes(ERSISuggestion.MUST_SELL) && b.includes(ERSISuggestion.MUST_SELL)) return 1;
-            return 0;
-          });
+          sortListBySuggestion(buyList, ERSISuggestion.MUST_BUY);
+          sortListBySuggestion(sellList, ERSISuggestion.MUST_SELL);
+          // 重新根据stockName排在一起
+         if(isBacktesting || klt === EKLT.DAY) {
+          sortByStockName(buyList);
+          sortByStockName(sellList);
+         }
           const tableStyle = "border-collapse: collapse";
           const thStyle = "border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2; text-align: center";
           const tdStyle = "text-align: center;";
