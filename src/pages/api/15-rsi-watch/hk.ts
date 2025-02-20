@@ -14,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('*/15 9-16 * * 1-5', ()=>{
+      HTask = cron.schedule('05 */15 9-16 * * 1-5', ()=>{
         fetchHKRSI({
           klt: EKLT['15M'],
           currentDate: dayjs()
@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if(isEmpty(HMorningTask)) {
-      HMorningTask = cron.schedule('25 9 * * 1-5', ()=>{
+      HMorningTask = cron.schedule('05 25 9 * * 1-5', ()=>{
         fetchHKRSI({
           klt: EKLT['15M'],
           currentDate: dayjs()

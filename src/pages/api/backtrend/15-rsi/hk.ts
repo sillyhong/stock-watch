@@ -25,7 +25,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // rsiData = await fetchHKRSI({ klt: EKLT['15M'], sendEmail: true, isBacktesting: true})
 
 
-    res.status(200).json({ message: 'Cron job set to RSI backtrend every workday', data: rsiData });
+    res.status(200).json({ message: 'Cron job set to HK [15]RSI backtrend every workday', data: rsiData });
   } else if (req.method === 'DELETE') {
     if (HbacktrendTask) {
       HbacktrendTask.stop();

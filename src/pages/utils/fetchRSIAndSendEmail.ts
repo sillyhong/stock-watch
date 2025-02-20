@@ -42,14 +42,18 @@ const prehandleFetch = async ({
     //   }
     // }
   //  console.log('StockLists123', 'klt', klt, 'stockType', stockType,StockLists[klt as keyof typeof StockLists][stockType])
+   try {
     return await fetchRSIAndSendEmail({
-        stockLists: StockLists[klt as keyof typeof StockLists][stockType],
-        currentDate,
-        sendEmail,
-        stockType,
-        klt,
-        isBacktesting,
+      stockLists: StockLists[klt as keyof typeof StockLists][stockType],
+      currentDate,
+      sendEmail,
+      stockType,
+      klt,
+      isBacktesting,
     });
+   } catch (error) {
+    console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] error`, error)
+   }
 }
 
 export const fetchUSRSI = async (params: IFetchUSRSIParams) => {
@@ -129,7 +133,7 @@ export const fetchRSIAndSendEmail = async ({
               if(isBacktesting) {// 接近三天
                 if(diffInMinutes > 5000) return
               }else {
-                if((diffInMinutes > 4 || diffInMinutes < -4)) return
+                if((diffInMinutes > 4 || diffInMinutes < -6)) return
               }
             }
 
@@ -206,7 +210,7 @@ export const fetchRSIAndSendEmail = async ({
               console.log(error);
               return;
             }
-          console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] ${kltDesc}发送邮件`, targetRSIData?.length);
+          console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [${stockType}]${kltDesc}发送邮件`, targetRSIData?.length);
             // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] Message sent: ${info.messageId}`);
           });
          }

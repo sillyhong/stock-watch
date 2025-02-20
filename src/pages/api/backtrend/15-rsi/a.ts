@@ -26,7 +26,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // rsiData = await fetchARSI({ klt: EKLT['15M'], sendEmail: false, isBacktesting: true})
 
-    res.status(200).json({ message: 'Cron job set to check RSI every 15 minutes.', data: rsiData });
+    res.status(200).json({ message: 'Cron job set to A [15]RSI backtrend every workday.', data: rsiData });
   } else if (req.method === 'DELETE') {
     if (ATBackTrendask) {
       ATBackTrendask.stop();

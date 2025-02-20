@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('*/15 9-16 * * 1-5', ()=>{
+      HTask = cron.schedule('05 */5 9-16 * * 1-5', ()=>{
         fetchHKRSI({
           klt: EKLT['5M'],
           currentDate: dayjs()
@@ -24,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     // rsiData = await fetchHKRSI({ klt: EKLT['5M'], sendEmail: false})
 
-    res.status(200).json({ message: `Cron job set to check HK RSI every 15 minutes.`, data: rsiData });
+    res.status(200).json({ message: `Cron job set to check HK RSI every 5 minutes.`, data: rsiData });
   } else if (req.method === 'DELETE') {
     if (HTask) {
       HTask.stop();
