@@ -1,7 +1,7 @@
 export const formatKlinesData = (sourceData) => {
 
 //所有返回数据对应的数组
-const sourceDataArray = sourceData.klines.map((v: string, index: number) => {
+const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
     const tempobj = v.split(',')
     return {
       index,

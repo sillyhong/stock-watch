@@ -1,5 +1,7 @@
+import { a_bantaoti } from "../data/astock/bandaoti"
 import { a_beijiaosuo } from "../data/astock/beijiaosuo"
 import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi"
+import { a_zhishu } from "../data/astock/zhishu"
 import { EKLT, EStockType } from "../interface"
 
 
@@ -108,6 +110,7 @@ export const HKStockList = [
     '116.06099',// 招商银行
     '116.02252',// 微创机器人-B
     '116.02013',// 微盟集团
+    '116.09626',// 哔哩哔哩
     '116.02533',// 黑芝麻智能
   ]
 
@@ -131,17 +134,17 @@ export const USStockList = [
 
 export const StockLists = {
   [EKLT["5M"]] : {
-    [EStockType.A]: AStockList,
+    [EStockType.A]: [...AStockList],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
   [EKLT["15M"]] : {
-    [EStockType.A]: [...AStockList, ...a_xiaofeidianzi,...a_beijiaosuo],
+    [EStockType.A]: [...a_zhishu, ...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
   [EKLT["DAY"]] : {
-    [EStockType.A]: AStockList,
+    [EStockType.A]: [...a_zhishu, ...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },

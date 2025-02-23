@@ -52,7 +52,8 @@ const prehandleFetch = async ({
       isBacktesting,
     });
    } catch (error) {
-    console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] error`, error)
+    console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][$
+    {stockType}][${klt}] error`, error)
    }
 }
 
