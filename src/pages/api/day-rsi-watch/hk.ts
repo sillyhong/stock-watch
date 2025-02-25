@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('0 17 * * 1-5', ()=>{
+      HTask = cron.schedule('1 17 * * 1-5', ()=>{
         fetchHKRSI({
           klt: EKLT.DAY,
           currentDate: dayjs()

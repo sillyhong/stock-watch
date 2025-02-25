@@ -11,7 +11,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     let rsiData: any
     if (isEmpty(HbacktrendTask)) {
-      HbacktrendTask = cron.schedule('2 17 * * 1-5', ()=>{
+      HbacktrendTask = cron.schedule('3 17 * * 1-5', ()=>{
         fetchHKRSI({
           klt: EKLT['15M'],
           currentDate: dayjs(),

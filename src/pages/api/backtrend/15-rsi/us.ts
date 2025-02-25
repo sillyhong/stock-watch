@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData
 
     if (isEmpty(USBacktrendTask)) {
-      USBacktrendTask = cron.schedule('3 17 * * 1-5', ()=>{
+      USBacktrendTask = cron.schedule('4 17 * * 1-5', ()=>{
         fetchUSRSI({
           klt: EKLT['15M'],
           currentDate: dayjs(),

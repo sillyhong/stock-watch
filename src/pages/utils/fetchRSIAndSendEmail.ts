@@ -96,11 +96,12 @@ export const fetchRSIAndSendEmail = async ({
         // console.log("🚀 ~ reqUrl:", reqUrl)
         return axios.get(reqUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Connection': 'keep-alive'
-          }
+          },
+          timeout: 60000, // 60s
         });
       }
         
@@ -134,6 +135,7 @@ export const fetchRSIAndSendEmail = async ({
               if(isBacktesting) {// 接近三天
                 if(diffInMinutes > 5000) return
               }else {
+                // 9.30开始不能<-5，会把冗余数据返回
                 if((diffInMinutes > 4 || diffInMinutes < -6)) return
               }
             }
@@ -202,7 +204,7 @@ export const fetchRSIAndSendEmail = async ({
           const mailOptions = {
             from: `[${stockType}][${kltDesc}]<1175166300@qq.com>`, // 发件人地址
             to: '1175166300@qq.com', // 收件人地址
-            subject: `${dayjs(currentDate).format('YYYY-MM-DD HH:mm')}[${stockType}][${kltDesc}]`, // 邮件主题
+            subject: `${dayjs(currentDate).format('YYYY-MM-DD HH:mm')}${isBacktesting ? '回测' : ''}[${stockType}][${kltDesc}]`, // 邮件主题
             text: emailContent, // 邮件内容
           };
     
