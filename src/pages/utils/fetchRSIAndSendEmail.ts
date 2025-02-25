@@ -11,7 +11,7 @@ import { ERSISuggestion, PrePullDayConfig, RSIThresholds } from "./config";
 import { a_beijiaosuo } from "../data/astock/beijiaosuo";
 import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi";
 import { backtestRSI } from "./backtrend";
-import { sortByStockName, sortListBySuggestion } from "./sort";
+import { normalSortByStockName, sortByStockName, sortListBySuggestion } from "./sort";
 
 
 
@@ -85,7 +85,7 @@ export const fetchRSIAndSendEmail = async ({
   sendEmail?: boolean,
   isBacktesting?: boolean
 }) => {
-      const targetRSIData: any[] =[]
+      let targetRSIData: any[] =[]
       // 需要前6个周期的值，需要向前几天拉取数据
       const prePullDay = PrePullDayConfig[stockType][klt]
       const startFormatDay = dayjs(currentDate).subtract(prePullDay,'day').format('YYYYMMDD');
@@ -101,7 +101,7 @@ export const fetchRSIAndSendEmail = async ({
             'Accept-Language': 'en-US,en;q=0.9',
             'Connection': 'keep-alive'
           },
-          timeout: 60000, // 60s
+          timeout: 120000, // 120s
         });
       }
         
@@ -109,7 +109,7 @@ export const fetchRSIAndSendEmail = async ({
         const results = await Promise.all(requests);
         const kltDesc = getEKLTDesc(klt)
         let emailContent
-        const buyList: any[] = [];
+        let buyList: any[] = [];
         const sellList: any[] = [];
 
         results?.forEach(eastmoneyData => {
@@ -122,7 +122,6 @@ export const fetchRSIAndSendEmail = async ({
 
           const RSIData = formatKlinesData(sourceData);
           const fullKlinesData = GetConvert('RSI', RSIData.full_klines, { market, stockCode, stockName, kltDesc});
-          // console.log("🚀 ~ stockName:",stockName, 'fullKlinesData:', fullKlinesData)
           const stockRSIData = fullKlinesData?.map(item => {
             const itemTime = dayjs(item[0]);
             // currentDate - itemTime
@@ -190,8 +189,8 @@ export const fetchRSIAndSendEmail = async ({
           sortListBySuggestion(sellList, ERSISuggestion.MUST_SELL);
           // 重新根据stockName排在一起
          if(isBacktesting || klt === EKLT.DAY) {
-          sortByStockName(buyList);
-          sortByStockName(sellList);
+          buyList = sortByStockName(buyList);
+          normalSortByStockName(sellList)
          }
           const tableStyle = "border-collapse: collapse";
           const thStyle = "border: 1px solid #ddd; padding: 8px; background-color: #f2f2f2; text-align: center";
@@ -217,5 +216,8 @@ export const fetchRSIAndSendEmail = async ({
             // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] Message sent: ${info.messageId}`);
           });
          }
+        if(isBacktesting) {
+          targetRSIData = sortByStockName(targetRSIData)
+        }
         return targetRSIData
     };

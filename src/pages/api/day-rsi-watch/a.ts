@@ -13,7 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('isEmpty(ATask)',isEmpty(ATask))
     if (isEmpty(ATask)) {
       // 每周一至周五 17:00 执行
-      ATask = cron.schedule('50 16 * * 1-5', ()=>{
+      ATask = cron.schedule('40 16 * * 1-5', ()=>{
         fetchARSI({
           klt: EKLT.DAY,
           currentDate: dayjs() 

@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(ATBackTrendask)',isEmpty(ATBackTrendask))
     if (isEmpty(ATBackTrendask)) {
-      ATBackTrendask = cron.schedule('55 16 * * 1-5', ()=>{
+      ATBackTrendask = cron.schedule('50 16 * * 1-5', ()=>{
         fetchARSI({
           klt: EKLT['15M'],
           currentDate: dayjs(),
