@@ -200,12 +200,12 @@ export const fetchRSIAndSendEmail = async ({
             } else if (Number(item?.[1]) >= rsiThresholds.mustSell && !isBacktesting) { // 回测不需要卖出信息
               //15分钟 不发送北交所卖出
               if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return 
-              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.MUST_SELL, currentPriceChange));
+              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.MUST_SELL, '', currentPriceChange));
               return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_SELL}`;
             } else if (Number(item?.[1]) >= rsiThresholds.sell && !isBacktesting) { // 回测不需要卖出信息
                //15分钟 不发送北交所卖出
               if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return
-              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.SELL, currentPriceChange));
+              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.SELL,'', currentPriceChange));
               return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.SELL}`;
             }
 
