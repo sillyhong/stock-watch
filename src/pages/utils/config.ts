@@ -1,6 +1,13 @@
 import dayjs from "dayjs";
 import { EKLT, EStockType } from "../interface"
 
+
+export const MarketCloseHour = {
+  [EStockType.A]: 15,
+  [EStockType.HK]: 16,
+  [EStockType.US]: 5,
+ } 
+
 export const MarketOpenSetting = {
  [EStockType.A]: {
   marketOpenHour: '09:25',

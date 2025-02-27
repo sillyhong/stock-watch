@@ -44,8 +44,19 @@ export const normalSortByStockName = (list) => {
 // Sort buyList: '立即买入🚀' should come first
 export const sortListBySuggestion = (list, suggestion) => {
   return list.sort((a, b) => {
-    if (a.includes(suggestion) && !b.includes(suggestion)) return -1;
-    if (!a.includes(suggestion) && b.includes(suggestion)) return 1;
-    return 0;
+    
+    // First, sort by suggestion
+    const suggestionA = a.includes(suggestion);
+    const suggestionB = b.includes(suggestion);
+    
+    if (suggestionA && !suggestionB) return -1;
+    if (!suggestionA && suggestionB) return 1;
+
+    // Then, extract the RSI values for sorting
+    const rsiA = parseFloat(a.split('</td><td>')[3]); // Extracting RSI value from the fixed format
+    const rsiB = parseFloat(b.split('</td><td>')[3]);
+
+    return rsiA - rsiB; // Sort by RSI value from small to large
   });
-};
+}
+
