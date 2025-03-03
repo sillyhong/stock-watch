@@ -116,14 +116,14 @@ export const fetchRSIAndSendEmail = async ({
 
         results?.forEach(eastmoneyData => {
           const sourceData = eastmoneyData?.data?.data;
-          // console.log("🚀 ~ sourceData:", sourceData)
+          // console.log("🚀s ~ sourceData:", sourceData)
           const stockName = sourceData?.name;
           const market = sourceData?.market;
           const stockCode = sourceData?.code;
           const marketType = MarketType[market]
 
           const RSIData = formatKlinesData(sourceData);
-          // console.log("🚀 ~ RSIData:", RSIData)
+          // console.log("🚀 ~ RSIData:", RSIData?.full_klines)
           let closeTimeMap: any = {}
           const priceChangeMap: any = RSIData?.full_klines.reduce((acc, kline) => {
             const time = dayjs(kline?.date).format('YYYY-MM-DD HH:mm'); // Format the time as needed
@@ -135,12 +135,15 @@ export const fetchRSIAndSendEmail = async ({
                closeTimeMap[time] = kline.close; // Save close price with time as key
             }
 
-            const preDayTime = stockType === EStockType.US && Number(hour) > 5 ? dayjs(kline.date) : dayjs(kline.date).subtract(1, 'day')
-            const previewTime = preDayTime.hour(closeHourConfig).minute(0).format('YYYY-MM-DD HH:mm')
-            const previousClose = closeTimeMap[previewTime];
-            if (previousClose) {
-              const priceChange = (kline.close - previousClose) / previousClose;
-              acc[time] = (priceChange * 100).toFixed(2); // Multiply by 100 and format to 2 decimal places
+            const closeTimeMapDate = Object.keys(closeTimeMap)
+
+            if(closeTimeMapDate) {
+              const previewTime = dayjs(closeTimeMapDate[closeTimeMapDate?.length -1]).format('YYYY-MM-DD HH:mm')
+              const previousClose = closeTimeMap[previewTime];
+              if (previousClose) {
+                const priceChange = (kline.close - previousClose) / previousClose;
+                acc[time] = (priceChange * 100).toFixed(2); // Multiply by 100 and format to 2 decimal places
+              }
             }
 
             return acc;
