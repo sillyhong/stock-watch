@@ -146,6 +146,10 @@ export const fetchRSIAndSendEmail = async ({
               }
             }
 
+            if(klt === EKLT.DAY) {
+              acc[time] = String(kline.volume); 
+            }
+
             return acc;
           }, {});
         

@@ -1,9 +1,11 @@
+
 export const sortByStockName = (list) => {
   const groupedProfits = list.reduce((acc, item) => {
+
     const stockName = item.includes("</td><td>")
       ? item.split("</td><td>")[2]
       : item.split(" ")[3]; // Handle both formats
-    const todayProfit = parseFloat(item.split("today: ")[1].split("%")[0]); // Extract today's profit from the string and convert to float
+    const todayProfit = parseFloat(item.split("today: ")?.[1]?.split("%")?.[0]); // Extract today's profit from the string and convert to float
     if (!acc[stockName]) {
       acc[stockName] = { maxProfit: todayProfit, items: [item] };
     } else {
@@ -23,7 +25,10 @@ export const sortByStockName = (list) => {
     const items = groupedProfits[key].items;
     const maxProfit = groupedProfits[key].maxProfit;
     return items.map((item) => {
-      const todayProfit = parseFloat(item.split("today: ")[1].split("%")[0]); // Extract today's profit from the string
+      // const timeInfo = item.split(" ")[0]; // Extract time from the item format
+      // const formatTimeInfo = timeInfo?.replace('[', ''); // Remove any leading brackets
+      // const isSameDay = dayjs().isSame(formatTimeInfo, 'day');
+      const todayProfit = parseFloat(item.split("today: ")?.[1]?.split("%")?.[0]); // Extract today's profit from the string
       // Add the max profit identifier only to the item with the max profit and positive value
       if (todayProfit === maxProfit && todayProfit > 0) {
         return item.replace("today", `[Max]`);

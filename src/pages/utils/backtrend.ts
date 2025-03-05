@@ -4,7 +4,7 @@ import { EStockType } from '../interface';
 const closeHourConfig = {
     [EStockType.A]: '15',
     [EStockType.HK]: '16',
-    [EStockType.US]: '4',
+    [EStockType.US]: '5',
 }
 
 export const backtestRSI = (currentData, rsiData, stockType) => {
@@ -23,8 +23,8 @@ export const backtestRSI = (currentData, rsiData, stockType) => {
     // Find the index of the current date in the rsiData
     if(stockType === EStockType.US ){
         const currentHour = dayjs(currentData?.date).hour();
-        const currentUSDate =  Number(currentHour) <= 4 ? dayjs(currentDate) : dayjs(currentDate).add(1, 'day') 
-        compareDate = `${dayjs(currentUSDate)?.format('YYYY-MM-DD')} 04:00` 
+        const currentUSDate =  Number(currentHour) <= closeHour ? dayjs(currentDate) : dayjs(currentDate).add(1, 'day') 
+        compareDate = `${dayjs(currentUSDate)?.format('YYYY-MM-DD')} 0${closeHour}:00` 
     }else {
         compareDate = `${currentDate.split(' ')[0]} ${closeHour}:00`
     }
