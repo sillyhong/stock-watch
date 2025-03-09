@@ -114,6 +114,8 @@ export const fetchRSIAndSendEmail = async ({
         let buyList: any[] = [];
         const sellList: any[] = [];
 
+        let latestTradeDirection: any = true // true表示上升，false表示下降
+
         results?.forEach(eastmoneyData => {
           const sourceData = eastmoneyData?.data?.data;
           // console.log("🚀s ~ sourceData:", sourceData)
@@ -138,12 +140,22 @@ export const fetchRSIAndSendEmail = async ({
             const closeTimeMapDate = Object.keys(closeTimeMap)
 
             if(closeTimeMapDate) {
+              // 前一天
               const previewTime = dayjs(closeTimeMapDate[closeTimeMapDate?.length -1]).format('YYYY-MM-DD HH:mm')
+              // 前两天
+              const previewTwoDayTime = dayjs(closeTimeMapDate[closeTimeMapDate?.length -2]).format('YYYY-MM-DD HH:mm')
               const previousClose = closeTimeMap[previewTime];
+              const previewTwoDayClose = closeTimeMap[previewTwoDayTime]
               if (previousClose) {
                 const priceChange = (kline.close - previousClose) / previousClose;
                 acc[time] = (priceChange * 100).toFixed(2); // Multiply by 100 and format to 2 decimal places
               }
+              // 判断最近两天的趋势
+              if(previousClose && previewTwoDayClose) {
+                const isGoUp = Boolean(Number(previewTwoDayClose) > Number(previousClose))
+                latestTradeDirection = !!isGoUp
+              }
+
             }
 
             if(klt === EKLT.DAY) {
@@ -192,28 +204,28 @@ export const fetchRSIAndSendEmail = async ({
                 const nextDayStr = `${backData?.nextdayPercentageProfit ? 'next: ' + backData?.nextdayPercentageProfit : ''}`
                 backtestingStr = `today: ${backData?.todayPercentageProfit} ${nextDayStr}`
               }
-              buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_BUY, backtestingStr, currentPriceChange));
+              buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_BUY, backtestingStr, currentPriceChange, latestTradeDirection));
 
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_BUY} ${backtestingStr}`;
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_BUY} ${backtestingStr} ${latestTradeDirection ? "⬆️" : "⬇️"}`;
             } else if (Number(item?.[1]) <= rsiThresholds.buy) {
               if(isBacktesting) {
                 const backData = backtestRSI(sourceItem, RSIData?.full_klines, stockType)
                 const nextDayStr = `${backData?.nextdayPercentageProfit ? 'next: ' + backData?.nextdayPercentageProfit : ''}`
                 backtestingStr = `today: ${backData?.todayPercentageProfit} ${nextDayStr} `
               }
-             buyList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.BUY, backtestingStr, currentPriceChange));
+             buyList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.BUY, backtestingStr, currentPriceChange, latestTradeDirection));
 
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.BUY} ${backtestingStr}`;
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.BUY} ${backtestingStr} ${latestTradeDirection ? "⬆️" : "⬇️"}`;
             } else if (Number(item?.[1]) >= rsiThresholds.mustSell && !isBacktesting) { // 回测不需要卖出信息
               //15分钟 不发送北交所卖出
               if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return 
-              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.MUST_SELL, '', currentPriceChange));
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_SELL}`;
+              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.MUST_SELL, '', currentPriceChange, latestTradeDirection));
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_SELL} ${latestTradeDirection ? "⬆️" : "⬇️"}`;
             } else if (Number(item?.[1]) >= rsiThresholds.sell && !isBacktesting) { // 回测不需要卖出信息
                //15分钟 不发送北交所卖出
               if(klt === EKLT["15M"] && [...a_beijiaosuo,...a_xiaofeidianzi].some(item=> item.includes(stockCode))) return
-              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.SELL,'', currentPriceChange));
-              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.SELL}`;
+              sellList.push(createEmailItem(item, kltDesc, stockLink, stockName,  ERSISuggestion.SELL,'', currentPriceChange, latestTradeDirection));
+              return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.SELL} ${latestTradeDirection ? "⬆️" : "⬇️"}`;
             }
 
           })?.filter(item => !!item);
