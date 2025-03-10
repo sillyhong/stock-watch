@@ -13,5 +13,5 @@ export const QQMail = nodemailer.createTransport({
 export const createEmailItem = (item: any, kltDesc: string | undefined, stockLink: string, stockName: string, suggestion: ERSISuggestion, backtestingStr: string = '',currentPriceChange = '', latestTradeDirection = true) => {
     const stockColor = [ERSISuggestion.BUY, ERSISuggestion.MUST_BUY].includes(suggestion) ? 'green' : 'red'
     const buyColor = [ERSISuggestion.MUST_BUY, ERSISuggestion.MUST_SELL].includes(suggestion) ? 'red' : 'orange'
-    return `<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: ${stockColor};">${stockName}</a></td><td>${item[1]} [${currentPriceChange}]</td><td style="color: ${buyColor};">${suggestion} ${backtestingStr} ${latestTradeDirection ? "⬆️" : "⬇️"}</td></tr>`;
+    return `<tr><td>${item[0]}</td><td>${kltDesc}</td><td><a href="${stockLink}" style="color: ${stockColor};">${stockName}</a></td><td>${item[1]} [${currentPriceChange}]</td><td style="color: ${buyColor};">${suggestion} ${backtestingStr} ${latestTradeDirection ? "" : "⬇️"}</td></tr>`;
 };
