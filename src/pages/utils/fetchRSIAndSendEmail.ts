@@ -8,7 +8,7 @@ import { isTodayWorkday } from "./workday";
 import { createEmailItem, QQMail } from "./email";
 import { StockLists } from "./stockList";
 import { ERSISuggestion, MarketCloseHour, PrePullDayConfig, RSIThresholds } from "./config";
-import { a_beijiaosuo } from "../data/astock/beijiaosuo";
+import { a_beijiaosuo, a_beijiaosuo_cn } from "../data/astock/beijiaosuo";
 import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi";
 import { backtestRSI } from "./backtrend";
 import { normalSortByStockName, sortByStockName, sortListBySuggestion } from "./sort";
@@ -118,9 +118,12 @@ export const fetchRSIAndSendEmail = async ({
         results?.forEach(eastmoneyData => {
           const sourceData = eastmoneyData?.data?.data;
           // console.log("🚀s ~ sourceData:", sourceData)
-          const stockName = sourceData?.name;
           const market = sourceData?.market;
           const stockCode = sourceData?.code;
+          let stockName = `${a_beijiaosuo_cn.includes(sourceData?.name) ? '[北]'+ sourceData?.name : sourceData?.name}`;
+          if(stockCode?.startsWith('300') || stockCode?.startsWith('688')) {
+            stockName = `[创]${stockName}`
+          }
           const marketType = MarketType[market]
 
           const RSIData = formatKlinesData(sourceData);
