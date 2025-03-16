@@ -1,5 +1,6 @@
 git pull
 pm2 restart stock-watch-dev 
+sleep 5
  curl http://localhost:3008/api/15-rsi-watch/hk
  curl http://localhost:3008/api/5-rsi-watch/hk
  curl http://localhost:3008/api/day-rsi-watch/hk
