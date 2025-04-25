@@ -273,7 +273,7 @@ export const fetchRSIAndSendEmail = async ({
             from: `[${stockType}][${kltDesc}]<1175166300@qq.com>`, // 发件人地址
             to: '1175166300@qq.com', // 收件人地址
             subject: `${dayjs(currentDate).format('YYYY-MM-DD HH:mm')}${isBacktesting ? '回测' : ''}[${stockType}][${kltDesc}]`, // 邮件主题
-            text: emailContent, // 邮件内容
+            html: emailContent, // 邮件内容
           };
     
           QQMail.sendMail(mailOptions, (error: any, info: any) => {
