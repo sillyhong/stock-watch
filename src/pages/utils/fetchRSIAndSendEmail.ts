@@ -55,7 +55,7 @@ const prehandleFetch = async ({
     });
    } catch (error) {
     console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][$
-    {stockType}][${klt}] error`, error)
+    ${stockType}][${klt}] error`, error)
    }
 }
 
