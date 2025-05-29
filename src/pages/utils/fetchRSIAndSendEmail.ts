@@ -103,7 +103,7 @@ export const fetchRSIAndSendEmail = async ({
             'Accept-Language': 'en-US,en;q=0.9',
             'Connection': 'keep-alive'
           },
-          timeout: 120000, // 120s
+          timeout: 180000, // 120s
         });
       }
         
@@ -115,7 +115,11 @@ export const fetchRSIAndSendEmail = async ({
         const sellList: any[] = [];
 
 
-        results?.forEach(eastmoneyData => {
+        results?.forEach((eastmoneyData ,index) => {
+          if(!eastmoneyData) { 
+            console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`, )
+            return ;
+           }
           const sourceData = eastmoneyData?.data?.data;
           // console.log("🚀s ~ sourceData:", sourceData)
           const market = sourceData?.market;
