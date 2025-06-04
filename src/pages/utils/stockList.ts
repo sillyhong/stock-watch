@@ -140,7 +140,7 @@ export const StockLists = {
     [EStockType.US]: USStockList,
   },
   [EKLT["15M"]] : {
-    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_beijiaosuo],
+    [EStockType.A]: [ ...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },

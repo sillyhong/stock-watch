@@ -94,6 +94,10 @@ export const fetchRSIAndSendEmail = async ({
       // const endFormatDay = dayjs(currentDate).format('YYYYMMDD');
      
       const requests = stockLists.length > 0 ? stockLists.map(stockId =>  {
+        //https://quote.eastmoney.com/sz300033.html
+        // https://quote.eastmoney.com/concept/sz300033.html?from=zixuan
+        // before: fa5fd1943c7b386f172d6893dbfba10b 自己
+        // after: fa5fd1943c7b386f172d6893dbfba10b
         const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f59&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
         // console.log("🚀 ~ reqUrl:", reqUrl)
         return axios.get(reqUrl, {
