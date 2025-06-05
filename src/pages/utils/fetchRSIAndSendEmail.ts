@@ -97,12 +97,12 @@ export const fetchRSIAndSendEmail = async ({
         //https://quote.eastmoney.com/sz300033.html
         // https://quote.eastmoney.com/concept/sz300033.html?from=zixuan
         // before: fa5fd1943c7b386f172d6893dbfba10b 自己
-        // after: fa5fd1943c7b386f172d6893dbfba10b
+        // after:  fa5fd1943c7b386f172d6893dbfba10b
         const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f59&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`
         // console.log("🚀 ~ reqUrl:", reqUrl)
         return axios.get(reqUrl, {
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_2) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.9',
             'Connection': 'keep-alive'
