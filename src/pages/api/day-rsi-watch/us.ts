@@ -5,6 +5,8 @@ import { fetchUSRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
+export const dynamic = 'force-dynamic';
+
 let USTask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

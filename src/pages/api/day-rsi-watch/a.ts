@@ -4,6 +4,8 @@ import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
+export const dynamic = 'force-dynamic';
+
 
 let ATask: cron.ScheduledUSTask;
 

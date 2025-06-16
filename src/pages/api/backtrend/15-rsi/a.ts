@@ -5,6 +5,9 @@ import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
+export const dynamic = 'force-dynamic';
+
+
 let ATBackTrendask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {

@@ -5,6 +5,9 @@ import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
+export const dynamic = 'force-dynamic';
+
+
 let HTask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -22,7 +25,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         scheduled: true
       });
     }
-    // rsiData = await fetchHKRSI({ klt: EKLT['5M'], sendEmail: false})
 
     res.status(200).json({ message: `Cron job set to check HK RSI every 5 minutes.`, data: rsiData });
   } else if (req.method === 'DELETE') {

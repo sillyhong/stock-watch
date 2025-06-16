@@ -5,6 +5,9 @@ import { fetchUSRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
+export const dynamic = 'force-dynamic';
+
+
 let USTask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -21,7 +24,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
+      // rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
     }
     res.status(200).json({ message: 'Cron job set to check US RSI every 15 minutes.',data: rsiData });
   } else if (req.method === 'DELETE') {

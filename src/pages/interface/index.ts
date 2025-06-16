@@ -4,7 +4,13 @@ export enum EStockType {
     A = 'A',
     HK = 'HK',
     US = 'US',
-  }
+}
+
+
+export enum EReqUrlType {
+  "XUE_QIU" = 'XUE_QIU',
+  "DONG_FANG_CAI_FU" = 'DONG_FANG_CAI_FU',
+}
 
   
   export const MarketType = {

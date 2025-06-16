@@ -5,6 +5,9 @@ import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
+export const dynamic = 'force-dynamic';
+
+
 let HTask: cron.ScheduledUSTask;
 let HMorningTask: cron.ScheduledUSTask;
 

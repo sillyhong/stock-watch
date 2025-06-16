@@ -1,13 +1,13 @@
 import axios from "axios";
-import { formatKlinesData } from "./formatKlines";
+import { formatFutuKlinesData, formatKlinesData } from "./formatKlines";
 // import { GetConvert } from "@/modules/tools/indicator/old";
 import { GetConvert } from "@/modules/tools/indicator/origin_old";
 import dayjs, { Dayjs } from "dayjs";
 import { EStockType, MarketType, EKLT, getEKLTDesc, IFetchUSRSIParams } from "../interface";
 import { isTodayWorkday } from "./workday";
 import { createEmailItem, QQMail } from "./email";
-import { StockLists } from "./stockList";
-import { ERSISuggestion, MarketCloseHour, PrePullDayConfig, RSIThresholds } from "./config";
+import { EasyStockLists, FutuStockLists } from "./stockList";
+import { ERSISuggestion, MarketCloseHour, PrePullDayConfig, RSIThresholds, EReqType, IFutuStockInfo, EFutuFetchUrl } from "./config";
 import { a_beijiaosuo, a_beijiaosuo_cn } from "../data/astock/beijiaosuo";
 import { a_xiaofeidianzi } from "../data/astock/xiaofeidanzi";
 import { backtestRSI } from "./backtrend";
@@ -18,12 +18,14 @@ import { ACCEPT_LANGUAGES, ACCEPTS, COOKIES, getRandomUserAgent, getRandomUserTo
 
 
 const prehandleFetch = async ({
+  reqType = EReqType.EASY_MONEY,
   stockType,
   currentDate = dayjs(),
   sendEmail = true,
   klt,
   isBacktesting = false
 }: {
+  reqType?: EReqType,
   stockType: EStockType,
   klt: number,
   currentDate?: Dayjs,
@@ -43,10 +45,11 @@ const prehandleFetch = async ({
     //       return `[${stockType}] Market is currently closed`;
     //   }
     // }
-  //  console.log('StockLists123', 'klt', klt, 'stockType', stockType,StockLists[klt as keyof typeof StockLists][stockType])
+  //  console.log('StockLists123', 'klt', klt, 'stockType', stockType,EasyStockLists[klt as keyof typeof EasyStockLists][stockType])
    try {
     return await fetchRSIAndSendEmail({
-      stockLists: StockLists[klt as keyof typeof StockLists][stockType],
+      reqType,
+      stockLists: reqType === EReqType.EASY_MONEY ? EasyStockLists[klt][stockType] :  FutuStockLists[klt][stockType],
       currentDate,
       sendEmail,
       stockType,
@@ -73,6 +76,7 @@ export const fetchHKRSI = async (params: IFetchUSRSIParams) => {
 
 
 export const fetchRSIAndSendEmail = async ({
+  reqType,
   stockLists = [],
   currentDate = dayjs(),
   sendEmail = true,
@@ -80,7 +84,8 @@ export const fetchRSIAndSendEmail = async ({
   klt = EKLT['15M'],
   isBacktesting = false
 }: {
-  stockLists: string[],
+  reqType: EReqType,
+  stockLists: string[] | IFutuStockInfo[],
   stockType: EStockType,
   klt: EKLT,
   currentDate?: Dayjs,
@@ -95,7 +100,7 @@ export const fetchRSIAndSendEmail = async ({
 
   // 分批次，每批10个
   const BATCH_SIZE = 10;
-  const batches: string[][] = [];
+  const batches: any[][] = [];
   for (let i = 0; i < stockLists.length; i += BATCH_SIZE) {
     batches.push(stockLists.slice(i, i + BATCH_SIZE));
   }
@@ -104,7 +109,7 @@ export const fetchRSIAndSendEmail = async ({
 
 
   for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
-    let batch = batches[batchIdx];
+    const batch = batches[batchIdx];
     // 随机打乱本批次顺序
     // batch = shuffleArray(batch);
 
@@ -124,26 +129,75 @@ export const fetchRSIAndSendEmail = async ({
     const requests = batch.map(async stockId => {
       // 每个请求前随机延迟 200~800ms
       await randomDelay(200, 800);
-
-      // 每个请求可选独立userAgent/token/头部（也可以都用本批次的）
-      const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=${userToken}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f59&klt=${klt}&fqt=1&beg=${startFormatDay}&end=20500000`;
-      return axios.get(reqUrl, {
-        headers: {
-          'User-Agent': userAgent,
-          'Accept': accept,
-          'Accept-Language': acceptLanguage,
-          'Referer': referer,
-          'Cookie': cookie,
-          'Connection': 'keep-alive',
-          'X-Forwarded-For': xForwardedFor,
-          'X-Real-IP': xRealIp
-        },
-        timeout: 120000, // 120s
-      });
+      if(reqType === EReqType.EASY_MONEY) {
+          // 每个请求可选独立userAgent/token/头部（也可以都用本批次的）
+          const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=${userToken}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f59&klt=${klt}&fqt=1&beg=${startFormatDay}&end=20500000`;
+          return axios.get(reqUrl, {
+            headers: {
+              'User-Agent': userAgent,
+              'Accept': accept,
+              'Accept-Language': acceptLanguage,
+              'Referer': referer,
+              'Cookie': cookie,
+              'Connection': 'keep-alive',
+              'X-Forwarded-For': xForwardedFor,
+              'X-Real-IP': xRealIp
+            },
+            timeout: 120000, // 120s
+          });
+      } else if(reqType === EReqType.FU_TU) {
+        
+        //futu这里的stockId是对象
+        // 分时线和日线的参数完全一致，不需要单独提取
+        const stockInfo: IFutuStockInfo = stockId as any
+        const params = new URLSearchParams({
+          stockId: stockInfo?.stockId,
+          marketType: '4',
+          type: '2', //获取5日的分钟线
+          marketCode: '35',
+          instrumentType: '3',
+          subInstrumentType: '3002',
+          _: "1767110400000" //2025-12-31 0:0:0  quoteToken: e212f7dc8e
+        });
+        const quoteToken = stockInfo?.quoteToken
+        
+        // 构造请求头（需包含所有浏览器发送的字段）
+        const headers = new Headers({
+          'method': 'GET',
+          'accept': 'application/json, text/plain, */*',
+          'accept-encoding': 'gzip, deflate, br, zstd',
+          'accept-language': 'en,zh-CN;q=0.9,zh;q=0.8,es;q=0.7,ar;q=0.6',
+          'cache-control': 'no-cache',
+          'cookie': 'csrfToken=TRsApBujOa7ZD70O7cppI1zR; locale=zh-cn; locale.sig=ObiqV0BmZw7fEycdGJRoK-Q0Yeuop294gBeiHL1LqgQ; cipher_device_id=1749285145821143; device_id=1749285145821143; Hm_lvt_f3ecfeb354419b501942b6f9caf8d0db=1749044380,1749285146; HMACCOUNT=ED9FEDB1351799C4; futu-csrf=W5OD5PP2oCnJbDm9rRPGrjezPgc=; _gid=GA1.2.1625938493.1749285147; _ga_25WYRC4KDG=GS2.1.s1749294322$o2$g0$t1749294337$j45$l0$h0; Hm_lpvt_f3ecfeb354419b501942b6f9caf8d0db=1749295234; _gat_UA-71722593-3=1; _ga=GA1.1.792543118.1749285147; _ga_XECT8CPR37=GS2.1.s1749294322$o2$g1$t1749295235$j60$l0$h0; _ga_370Q8HQYD7=GS2.2.s1749294324$o2$g1$t1749295235$j60$l0$h0; _ga_EJJJZFNPTW=GS2.1.s1749294323$o2$g1$t1749295235$j60$l0$h0; ftreport-jssdk%40session={%22distinctId%22:%22ftv16wScUGFvhQ+J7+mpTN2oN5WHbhTplo+rBzP+mH1aG5W5vyR1xOONgSbv1b6WtWGf%22%2C%22firstId%22:%22ftv1iyS3E3VMM+8rLKzjshyBvjOGoYYMdkRc/GJ4BAZP8DGR+sVl1pAtlVqra01qHAR9%22%2C%22latestReferrer%22:%22https://www.futunn.com/%22}', // 替换为完整Cookie
+          'futu-x-csrf-token': 'TRsApBujOa7ZD70O7cppI1zR', // 新增字段（浏览器请求中存在）
+          'pragma': 'no-cache',
+          'priority': 'u=1, i',
+          'quote-token': quoteToken, // 新增字段（浏览器请求中存在）
+          'referer': 'https://www.futunn.com/stock/KNW-US?chain_id=_JZb7-E8Xbh33r.1k48841&global_content=%7B%22promote_id%22%3A13766,%22sub_promote_id%22%3A2,%22f%22%3A%22nn%2Fquote%22%7D', // 替换为实际Referer
+          'sec-fetch-dest': 'empty',
+          'sec-fetch-mode': 'cors',
+          'sec-fetch-site': 'same-origin',
+          'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15',
+        });
+        const futuFetchUrl = EFutuFetchUrl[klt]
+        // 每个请求可选独立userAgent/token/头部（也可以都用本批次的）
+        // console.log('fetch123',`${futuFetchUrl}?${params}`)
+        return fetch(`${futuFetchUrl}?${params}`, {
+          method: 'GET',
+          headers: headers,
+          mode: 'cors', // 跨域模式（与浏览器一致）
+          credentials: 'include', // 包含Cookie（若需要）
+        }).then(response => {
+          if (!response.ok) {
+            throw new Error(`请求失败：状态码 ${response.status}`);
+          }
+          return response.json(); // 解析JSON响应
+        })
+      }
     });
 
     try {
-      // console.log(`=====共 ${batchIdx+1}, 第${batchIdx}次开始, params: ${JSON.stringify({userAgent, userToken, accept, acceptLanguage, referer, cookie, xForwardedFor, xRealIp}, undefined, 2)}===`)
+      console.log(`=====共 ${batchIdx+1}, 第${batchIdx}次开始===`)
       // console.log(`=====共 ${batchIdx+1}, 第${batchIdx + 1}次开始===`)
       // 批次间随机sleep 1~2秒
       if (batchIdx > 0) await randomDelay(1500, 2000);
@@ -162,13 +216,19 @@ export const fetchRSIAndSendEmail = async ({
   let buyList: any[] = [];
   const sellList: any[] = [];
 
-  allResults?.forEach((eastmoneyData, index) => {
-    if (!eastmoneyData) {
+  allResults?.forEach((stockData, index) => {
+    if (!stockData) {
       console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
       return;
     }
-    const sourceData = eastmoneyData?.data?.data;
-    // console.log("🚀s ~ sourceData:", sourceData)
+    let sourceData = {}
+    if(reqType === EReqType.EASY_MONEY) {
+     sourceData = stockData?.data?.data;
+    } else {
+      sourceData = formatFutuKlinesData(stockLists as IFutuStockInfo[], stockData, klt)
+    }
+    //stockData?.data?.data;
+    // console.log("🚀 ~ sourceData:", sourceData)
     const market = sourceData?.market;
     const stockCode = sourceData?.code;
     let stockName = `${a_beijiaosuo_cn.includes(sourceData?.name) ? '[北]' + sourceData?.name : sourceData?.name}`;

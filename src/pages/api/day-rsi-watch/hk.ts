@@ -5,6 +5,8 @@ import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
+export const dynamic = 'force-dynamic';
+
 let HTask: cron.ScheduledUSTask;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -12,7 +14,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('1 17 * * 1-5', ()=>{
+      HTask = cron.schedule('5 17 * * 1-5', ()=>{
         fetchHKRSI({
           klt: EKLT.DAY,
           currentDate: dayjs()

@@ -2,6 +2,13 @@ import dayjs from "dayjs";
 import { EKLT, EStockType } from "../interface"
 
 
+export interface IFutuStockInfo {
+  stockId: string,
+  name: string,
+  stockCode: string,
+  quoteToken: string
+}
+
 export const MarketCloseHour = {
   [EStockType.A]: 15,
   [EStockType.HK]: 16,
@@ -126,4 +133,17 @@ export const PrePullDayConfig = {
         [EKLT['15M']]: 14,
         [EKLT['DAY']]: 30,
     },
+}
+
+
+export enum EReqType  {
+  'EASY_MONEY' = 'EASY_MONEY',
+  'FU_TU' = 'FU_TU'
+}
+
+
+export const EFutuFetchUrl = {
+  [EKLT["5M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
+  [EKLT["15M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
+  [EKLT.DAY]: 'https://www.futunn.com/quote-api/quote-v2/get-kline', //选中“日K”, 查看日线 
 }

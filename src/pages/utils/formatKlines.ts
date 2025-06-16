@@ -1,7 +1,12 @@
+import dayjs from "dayjs"
+import { IFutuStockInfo } from "./config"
+import { EKLT } from "../interface"
+
+// 格式化东方财富 klines
 export const formatKlinesData = (sourceData) => {
 
 //所有返回数据对应的数组
-const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
+  const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
     const tempobj = v.split(',')
     return {
       index,
@@ -41,3 +46,107 @@ const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
   }
 
 }
+
+// 格式化富途 klines
+export const formatFutuKlinesData = (
+  stockLists: IFutuStockInfo[],
+  stockData: any,
+  klt: EKLT
+) => {
+  // 查找目标股票信息
+  const findStockIndex = stockLists.findIndex(
+    (stockItem: IFutuStockInfo) => stockItem.stockId === stockData?.data?.stockId
+  );
+  const targetStock: IFutuStockInfo = stockLists[findStockIndex];
+  let klines = []
+  // 处理K线数据
+  if(klt === EKLT["5M"] || klt === EKLT["15M"]) {
+    klines = (stockData?.data?.list || [])
+    .filter((item: any) => {
+      // item.time 可能是秒或毫秒
+      const t = String(item.time).length === 10 ? item.time * 1000 : item.time;
+      const hour = dayjs(t).hour();
+      const minute = dayjs(t).minute();
+      // 保留9:30到15:00范围内的数据，且分钟只能为0,15,30,45
+      if (hour < 9 || hour > 15) return false;
+      if (hour === 9 && minute < 30) return false;
+      if (hour === 15 && minute > 0) return false;
+
+      if(klt === EKLT["5M"]){
+        return [0, 5,10 ,15, 20, 25, 30, 35,40, 45, 50, 55].includes(minute);
+      }else if(klt === EKLT["15M"]) {
+        return [0, 15, 30, 45].includes(minute);
+      }
+    })
+    .map((item: any) => {
+      // 补全所有字段，兼容不存在的字段
+      const t = String(item.time).length === 10 ? item.time * 1000 : item.time;
+      const timeStr = dayjs(t).format('YYYY-MM-DD HH:mm');
+      // 兼容字段名，部分字段可能不存在
+      // 东方财富格式: "2025-05-15 14:45,266.28,265.60,266.28,265.22,3910,103824368.00,0.40,-0.26,-0.68,0.14"
+      // 富途部分字段可能为undefined，需补全为0
+      return [
+        timeStr,
+        item.open ?? 0,
+        item.cc_price ?? item.close ?? 0,
+        item.high ?? 0,
+        item.low ?? 0,
+        item.volume ?? 0,
+        item.turnover ?? 0,
+        item.amplitude ?? 0,
+        item.change ?? 0,
+        item.ratio ?? 0,
+        item.turnoverRate ?? 0
+      ].join(',');
+    });
+  } else if (klt === EKLT.DAY) {
+
+     klines = (stockData?.data?.list || [])
+    .slice(-60)
+    .map(item => {
+      // 东方财富格式: "2025-05-15 14:45,266.28,265.60,266.28,265.22,3910,103824368.00,0.40,-0.26,-0.68,0.14"
+      // 假设item结构: { time, open, close, high, low, volume, turnover, amplitude, change, ratio, turnoverRate }
+      // 你需要根据实际返回字段名调整下方属性
+      const t = String(item.k).length === 10 ? item.k * 1000 : item.k;
+      const timeStr = dayjs(t).format('YYYY-MM-DD HH:mm');
+      // 兼容字段名，部分字段可能不存在
+      /* 
+          c: "251.18"
+          cp: "-4.96"
+          h: "255.98"
+          k: 1749744000
+          l: "250.48"
+          lc: 256.14
+          o: "253.6"
+          r: 0.02083
+          t: 1448369996.29
+          v: 5738800
+      */
+      return  [
+        timeStr,
+        item.o,
+        item.c, 
+        item.h,
+        item.l,
+        item.v,
+        item.t,
+        item?.amplitude,
+        item.lc,
+        item.r,
+        item?.turnoverRate
+      ].join(',');
+    });
+  }
+  
+
+  // 补全格式
+  return {
+    code: targetStock?.stockCode ?? stockData?.data?.stockId ?? '',
+    market: 4,
+    name: targetStock?.name ?? '',
+    decimal: 2,
+    dktotal: 3730,
+    preKPrice: stockData?.data?.preClose ?? 0,
+    klines: klines
+  };
+};
