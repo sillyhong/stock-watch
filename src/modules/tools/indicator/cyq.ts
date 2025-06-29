@@ -1,5 +1,7 @@
 // @ts-nocheck
 
+import Decimal  from 'decimal.js';
+
 /**
  * 筹码分布算法
  * @param {Array.<Array.<string>>} kdata K图数据 [time,open,close,high,low,volume,amount,amplitude,turnoverRate]
@@ -27,58 +29,84 @@ export function CYQCalculator(kdata, accuracyFactor, range) {
  * @return {{x: Array.<number>, y: Array.<number>}}
  */
 CYQCalculator.prototype.calc = function (index) {
-    var maxprice = 0;
-    var minprice = 0;
-    var factor = this.fator;
-    var start = this.range ? Math.max(0, index - this.range + 1) : 0;
+    let maxprice = 0;
+    let minprice = 0;
+    const factor = this.fator;
+    const start = this.range ? Math.max(0, index - this.range + 1) : 0;
     /**
      * K图数据[time,open,close,high,low,volume,amount,amplitude,turnoverRate]
      */
-    var kdata = this.klinedata.slice(start, Math.max(1, index + 1));
+    const kdata = this.klinedata.slice(start, Math.max(1, index + 1));
     if (kdata.length === 0) throw 'invaild index';
     for (var i = 0; i < kdata.length; i++) {
-        var elements = kdata[i];
+        const elements = kdata[i];
         maxprice = !maxprice ? elements.high : Math.max(maxprice, elements.high);
         minprice = !minprice ? elements.low : Math.min(minprice, elements.low);
     }
 
-    // 精度不小于0.01 产品逻辑
-    var accuracy = Math.max(0.01, (maxprice - minprice) / (factor - 1));
+    // // 精度不小于0.01 产品逻辑
+    // const accuracy = Math.max(0.01, (maxprice - minprice) / (factor - 1));
+    // console.log('accuracy123',accuracy)
+
+    // 设置全局精度
+    Decimal.config({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
+
+    // 使用Decimal.js进行高精度计算
+    const maxpriceDec = new Decimal(maxprice);
+    const minpriceDec = new Decimal(minprice);
+    const factorDec = new Decimal(factor);
+
+    // 计算精度值，确保不小于0.01
+    const rawAccuracy = maxpriceDec.sub(minpriceDec).div(factorDec.sub(1));
+    const minAccuracy = new Decimal(0.01);
+    const accuracyDec = rawAccuracy.lt(minAccuracy) ? minAccuracy : rawAccuracy;
+
+    // 转换回普通数字进行显示，但保持高精度
+    const accuracy = accuracyDec.toFixed(8); // 保留8位小数
+
     /** 
      * 值域
      * @type {Array.<number>} 
      */
-    var yrange = [];
+    const yrange = [];
     for (var i = 0; i < factor; i++) {
-        yrange.push((minprice + accuracy * i).toFixed(2) / 1);
+        // yrange.push((minprice + accuracy * i).toFixed(2) / 1);
+        // yrange.push((minprice + accuracy * i) / 1);
+        // 使用BigInt进行计算，然后转换回普通数字
+        // const value = minpriceBig + accuracyBig * BigInt(i);
+
+        // 使用Decimal.js进行计算，然后转换回普通数字
+        const value = minpriceDec.add(accuracyDec.mul(i));
+        yrange.push(value.toNumber());
+        // yrange.push(Number(value) / Number(PRECISION_FACTOR));
     }
     /**
      * 横轴数据
      */
-    var xdata = createNumberArray(factor);
+    const xdata = createNumberArray(factor);
 
     for (var i = 0; i < kdata.length; i++) {
-        var eles = kdata[i];
-        var open = eles.open,
+        const eles = kdata[i];
+        const open = eles.open,
             close = eles.close,
             high = eles.high,
             low = eles.low,
             avg = (open + close + high + low) / 4,
             turnoverRate = Math.min(1, eles.hsl / 100 || 0);
-        var H = Math.floor((high - minprice) / accuracy),
+        const H = Math.floor((high - minprice) / accuracy),
             L = Math.ceil((low - minprice) / accuracy),
             // G点坐标, 一字板时, X为进度因子
             GPoint = [high == low ? factor - 1 : 2 / (high - low), Math.floor((avg - minprice) / accuracy)];
         // 衰减
-        for (var n = 0; n < xdata.length; n++) {
+        for (let n = 0; n < xdata.length; n++) {
             xdata[n] *= (1 - turnoverRate);
         }
         if (high == low) {
             // 一字板时，画矩形面积是三角形的2倍
             xdata[GPoint[1]] += GPoint[0] * turnoverRate / 2;
         } else {
-            for (var j = L; j <= H; j++) {
-                var curprice = minprice + accuracy * j;
+            for (let j = L; j <= H; j++) {
+                const curprice = minprice + accuracy * j;
                 if (curprice <= avg) {
                     // 上半三角叠加分布分布
                     if (Math.abs(avg - low) < 1e-8) {
@@ -99,14 +127,14 @@ CYQCalculator.prototype.calc = function (index) {
     }
 
 
-    var currentprice = this.klinedata[index].close;
-    var totalChips = 0;
+    const currentprice = this.klinedata[index].close;
+    let totalChips = 0;
     for (var i = 0; i < factor; i++) {
-        var x = xdata[i].toPrecision(12) / 1;
+        const x = xdata[i].toPrecision(12) / 1;
         //if (x < 0) xdata[i] = 0;
         totalChips += x;
     }
-    var result = new CYQData();
+    const result = new CYQData();
     result.x = xdata;
     result.y = yrange;
     result.benefitPart = result.getBenefitPart(currentprice);
@@ -122,10 +150,10 @@ CYQCalculator.prototype.calc = function (index) {
      * @param {number} chip 堆叠筹码
      */
     function getCostByChip(chip) {
-        var result = 0,
+        let result = 0,
             sum = 0;
-        for (var i = 0; i < factor; i++) {
-            var x = xdata[i].toPrecision(12) / 1;
+        for (let i = 0; i < factor; i++) {
+            const x = xdata[i].toPrecision(12) / 1;
             if (sum + x > chip) {
                 result = minprice + i * accuracy;
                 break;
@@ -168,23 +196,75 @@ CYQCalculator.prototype.calc = function (index) {
          * 计算指定百分比的筹码
          * @param {number} percent 百分比大于0，小于1
          */
-        this.computePercentChips = function (percent) {
-            if (percent > 1 || percent < 0) throw 'argument "percent" out of range';
-            var ps = [(1 - percent) / 2, (1 + percent) / 2];
-            var pr = [getCostByChip(totalChips * ps[0]), getCostByChip(totalChips * ps[1])];
-            return {
-                priceRange: [pr[0].toFixed(2), pr[1].toFixed(2)],
-                concentration: pr[0] + pr[1] === 0 ? 0 : (pr[1] - pr[0]) / (pr[0] + pr[1])
-            };
-        };
+        /**
+         * 计算指定百分比的筹码分布
+         * @param {number} percent 百分比(0-1之间)
+         * @returns {{priceRange: number[], concentration: number}} 价格范围和集中度
+         */
+    
+        // this.computePercentChips = function (percent) {
+        //     if (percent > 1 || percent < 0) throw 'argument "percent" out of range';
+        //     const ps = [(1 - percent) / 2, (1 + percent) / 2];
+        //     const pr = [getCostByChip(totalChips * ps[0]), getCostByChip(totalChips * ps[1])];
+        //     return {
+        //         priceRange: [pr[0].toFixed(2), pr[1].toFixed(2)],
+        //         concentration: pr[0] + pr[1] === 0 ? 0 : (pr[1] - pr[0]) / (pr[0] + pr[1])
+        //     };
+        // };
+
+        this.computePercentChips = function(percent) {
+    if (percent > 1 || percent < 0) throw 'argument "percent" out of range';
+    
+    // 将输入转换为Decimal类型
+    const percentDec = new Decimal(percent);
+    const totalChipsDec = new Decimal(totalChips);
+    
+    // 计算百分比边界 (高精度计算)
+    const ps = [
+        new Decimal(1).sub(percentDec).div(2),
+        new Decimal(1).add(percentDec).div(2)
+    ];
+    
+    // 计算筹码位置
+    const chipPositions = [
+        totalChipsDec.mul(ps[0]).toNumber(),
+        totalChipsDec.mul(ps[1]).toNumber()
+    ];
+    
+    // 获取对应价格点
+    const pr = [
+        getCostByChip(chipPositions[0]),
+        getCostByChip(chipPositions[1])
+    ];
+    
+    // 使用Decimal进行高精度价格计算
+    const pr0Dec = new Decimal(pr[0]);
+    const pr1Dec = new Decimal(pr[1]);
+    const sumDec = pr0Dec.add(pr1Dec);
+    
+    // 计算集中度 (避免除以零错误)
+    let concentration = 0;
+    if (!sumDec.isZero()) {
+        const diffDec = pr1Dec.sub(pr0Dec);
+        concentration = diffDec.div(sumDec).toNumber();
+    }
+    
+    return {
+        priceRange: [
+            pr[0].toFixed(3), // 保持两位小数显示
+            pr[1].toFixed(3)
+        ],
+        concentration: concentration
+    };
+}; 
         /**
          * 获取指定价格的获利比例
          * @param {number} price 价格
          */
         this.getBenefitPart = function (price) {
-            var below = 0;
-            for (var i = 0; i < factor; i++) {
-                var x = xdata[i].toPrecision(12) / 1;
+            let below = 0;
+            for (let i = 0; i < factor; i++) {
+                const x = xdata[i].toPrecision(12) / 1;
                 if (price >= minprice + i * accuracy) {
                     below += x;
                 }
@@ -199,8 +279,8 @@ CYQCalculator.prototype.calc = function (index) {
  * @param {number} count 数组数量
  */
 function createNumberArray(count) {
-    var array = [];
-    for (var i = 0; i < count; i++) {
+    const array = [];
+    for (let i = 0; i < count; i++) {
         array.push(0);
     }
     return array;

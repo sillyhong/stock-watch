@@ -1,10 +1,9 @@
 import axios from "axios";
-import { formatFutuKlinesData, formatKlinesData } from "./formatKlines";
+import { formatKlinesData } from "./formatKlines";
 // import { GetConvert } from "@/modules/tools/indicator/old";
 import { GetConvert } from "@/modules/tools/indicator/origin_old";
 import dayjs, { Dayjs } from "dayjs";
 import { EStockType, MarketType, EKLT, getEKLTDesc, IFetchUSRSIParams } from "../interface";
-import { isTodayWorkday } from "./workday";
 import { createEmailItem, QQMail } from "./email";
 import { EasyStockLists, FutuStockLists } from "./stockList";
 import { ERSISuggestion, MarketCloseHour, PrePullDayConfig, RSIThresholds, EReqType, IFutuStockInfo, EFutuFetchUrl } from "./config";
@@ -14,6 +13,7 @@ import { backtestRSI } from "./backtrend";
 import { normalSortByStockName, sortByStockName, sortListBySuggestion } from "./sort";
 import { formatPriceChange } from "./format";
 import { ACCEPT_LANGUAGES, ACCEPTS, COOKIES, getRandomUserAgent, getRandomUserToken, randomDelay, randomFromArray, randomIP, REFERERS, shuffleArray } from "./header";
+import { CYQCalculator } from "@/modules/tools/indicator/cyq";
 
 
 
@@ -32,20 +32,6 @@ const prehandleFetch = async ({
   sendEmail?: boolean,
   isBacktesting?: boolean
 }) => {
-    const checkWorkdayRes = isTodayWorkday(stockType, currentDate.toDate());
-
-    // if(klt === 15) {
-    //   if (!checkWorkdayRes) {
-    //     console.warn(`[${stockType}] Today is not a workday`);
-    //     return `[${stockType}] Today is not a workday`;
-    //   }
-    //   const marketSettings = MarketOpenSetting[stockType];
-    //   if (!isMarketOpen(marketSettings.marketOpenHour, marketSettings.marketCloseHour, currentDate)) {
-    //       console.warn(`[${stockType}] Market is currently closed`);
-    //       return `[${stockType}] Market is currently closed`;
-    //   }
-    // }
-  //  console.log('StockLists123', 'klt', klt, 'stockType', stockType,EasyStockLists[klt as keyof typeof EasyStockLists][stockType])
    try {
     return await fetchRSIAndSendEmail({
       reqType,
@@ -131,7 +117,8 @@ export const fetchRSIAndSendEmail = async ({
       await randomDelay(200, 800);
       if(reqType === EReqType.EASY_MONEY) {
           // 每个请求可选独立userAgent/token/头部（也可以都用本批次的）
-          const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=${userToken}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f59&klt=${klt}&fqt=1&beg=${startFormatDay}&end=20500000`;
+          const reqUrl = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${stockId}&ut=${userToken}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=${klt}&fqt=0&beg=${startFormatDay}&end=20500000`;
+          // console.log('reqUrl123',reqUrl)
           return axios.get(reqUrl, {
             headers: {
               'User-Agent': userAgent,
@@ -197,7 +184,7 @@ export const fetchRSIAndSendEmail = async ({
     });
 
     try {
-      console.log(`=====共 ${batchIdx+1}, 第${batchIdx}次开始===`)
+      // console.log(`=====共 ${batchIdx+1}, 第${batchIdx}次开始, params: ${JSON.stringify({userAgent, userToken, accept, acceptLanguage, referer, cookie, xForwardedFor, xRealIp}, undefined, 2)}===`)
       // console.log(`=====共 ${batchIdx+1}, 第${batchIdx + 1}次开始===`)
       // 批次间随机sleep 1~2秒
       if (batchIdx > 0) await randomDelay(1500, 2000);
@@ -216,19 +203,65 @@ export const fetchRSIAndSendEmail = async ({
   let buyList: any[] = [];
   const sellList: any[] = [];
 
-  allResults?.forEach((stockData, index) => {
-    if (!stockData) {
+  allResults?.forEach((eastmoneyData, index) => {
+    if (!eastmoneyData) {
       console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
       return;
     }
     let sourceData = {}
     if(reqType === EReqType.EASY_MONEY) {
-     sourceData = stockData?.data?.data;
+     sourceData = eastmoneyData?.data?.data;
     } else {
-      sourceData = formatFutuKlinesData(stockLists as IFutuStockInfo[], stockData, klt)
+      const findStockIndex = stockLists.findIndex((stockItem: any) => stockItem.stockId === eastmoneyData?.data?.stockId)
+      const targetStock: IFutuStockInfo =  stockLists[findStockIndex] as any
+      // console.log('eastmoneyData123',eastmoneyData?.data)
+      const klines = (eastmoneyData?.data?.list || [])
+      .filter(item => {
+        // item.time 可能是秒或毫秒
+        const t = String(item.time).length === 10 ? item.time * 1000 : item.time;
+        const hour = dayjs(t).hour();
+        const minute = dayjs(t).minute();
+        // 保留9:30到15:00范围内的数据，且分钟只能为0,15,30,45
+        // 9:30 <= time <= 15:00
+        if (hour < 9 || hour > 15) return false;
+        if (hour === 9 && minute < 30) return false;
+        if (hour === 15 && minute > 0) return false;
+        return [0, 15, 30, 45].includes(minute);
+      })
+      .map(item => {
+        // 东方财富格式: "2025-05-15 14:45,266.28,265.60,266.28,265.22,3910,103824368.00,0.40,-0.26,-0.68,0.14"
+        // 假设item结构: { time, open, close, high, low, volume, turnover, amplitude, change, ratio, turnoverRate }
+        // 你需要根据实际返回字段名调整下方属性
+        const t = String(item.time).length === 10 ? item.time * 1000 : item.time;
+        const timeStr = dayjs(t).format('YYYY-MM-DD HH:mm');
+        // 兼容字段名，部分字段可能不存在
+        return  [
+          timeStr,
+          item.open,
+          item.cc_price, 
+          item.high,
+          item.low,
+          item.volume,
+          item.turnover,
+          item.amplitude,
+          item.change,
+          item.ratio,
+          item.turnoverRate
+        ].join(',');
+      });
+
+      sourceData = {
+        "code": targetStock?.stockCode,
+        "market": 4,
+        "name": targetStock.name,
+        "decimal": 2,
+        "dktotal": 3730,
+        "preKPrice": 257.1,
+        "klines": klines
+      }
     }
-    //stockData?.data?.data;
-    // console.log("🚀 ~ sourceData:", sourceData)
+    //eastmoneyData?.data?.data;
+    // console.log("🚀s ~ sourceData:", sourceData)
     const market = sourceData?.market;
     const stockCode = sourceData?.code;
     let stockName = `${a_beijiaosuo_cn.includes(sourceData?.name) ? '[北]' + sourceData?.name : sourceData?.name}`;
@@ -238,7 +271,27 @@ export const fetchRSIAndSendEmail = async ({
     const marketType = MarketType[market];
 
     const RSIData = formatKlinesData(sourceData);
-    // console.log("🚀 ~ RSIData:", RSIData?.full_klines)
+    //比较近三天筹码集中度是否上升
+    let isChipIncrease = false
+
+    if(reqType === EReqType.EASY_MONEY && klt === EKLT.DAY) {
+        // 设置筹码分布
+        // @ts-ignore
+        const cm1 = new CYQCalculator(JSON.parse(JSON.stringify(RSIData?.full_klines)))
+        const todayCMResult = cm1.calc(RSIData?.full_klines?.length - 1)
+        const yesterDayCMResult = cm1.calc(RSIData?.full_klines?.length - 2)
+        const yesterBeforeDayCMResult = cm1.calc(RSIData?.full_klines?.length -3)
+      
+
+        //筹码集中度
+        const todayChips = ((todayCMResult?.percentChips?.['90']?.concentration ?? 0) * 100).toFixed(3)
+        const yesterdayChips = ((yesterDayCMResult?.percentChips?.['90']?.concentration ?? 0) * 100).toFixed(3)
+        const yesterBeforeChips = ((yesterBeforeDayCMResult?.percentChips?.['90']?.concentration ?? 0) * 100).toFixed(3)
+        if(todayChips >= yesterdayChips && yesterdayChips >= yesterBeforeChips) {
+          isChipIncrease = true
+        }
+    }
+    
     const closeTimeMap: any = {};
     const priceChangeMap: any = RSIData?.full_klines.reduce((acc: { priceChange: any, tradeDirection: any }, kline, index) => {
       const time = dayjs(kline?.date).format('YYYY-MM-DD HH:mm'); // Format the time as needed
@@ -324,6 +377,7 @@ export const fetchRSIAndSendEmail = async ({
 
       const sourceItem = RSIData?.full_klines?.find(item => dayjs(item?.date).isSame(itemTime, 'minute'));
       const rsiThresholds = RSIThresholds[stockType][klt];
+      const increaseStr = isChipIncrease ? '💹' : ''
 
       const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
       if (Number(item?.[1]) <= rsiThresholds.mustBuy) {
@@ -333,28 +387,28 @@ export const fetchRSIAndSendEmail = async ({
           const nextDayStr = `${backData?.nextdayPercentageProfit ? 'next: ' + backData?.nextdayPercentageProfit : ''}`;
           backtestingStr = `today: ${backData?.todayPercentageProfit} ${nextDayStr}`;
         }
-        buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_BUY, backtestingStr, currentPriceChange, currentTradeStr));
+        buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_BUY, backtestingStr, currentPriceChange, currentTradeStr, increaseStr));
 
-        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_BUY} ${backtestingStr} ${currentTradeStr}`;
+        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_BUY} ${backtestingStr} ${currentTradeStr} ${increaseStr}`;
       } else if (Number(item?.[1]) <= rsiThresholds.buy) {
         if (isBacktesting) {
           const backData = backtestRSI(sourceItem, RSIData?.full_klines, stockType);
           const nextDayStr = `${backData?.nextdayPercentageProfit ? 'next: ' + backData?.nextdayPercentageProfit : ''}`;
           backtestingStr = `today: ${backData?.todayPercentageProfit} ${nextDayStr} `;
         }
-        buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.BUY, backtestingStr, currentPriceChange, currentTradeStr));
+        buyList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.BUY, backtestingStr, currentPriceChange, currentTradeStr, increaseStr));
 
-        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.BUY} ${backtestingStr} ${currentTradeStr}`;
+        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.BUY} ${backtestingStr} ${currentTradeStr} ${increaseStr}`;
       } else if (Number(item?.[1]) >= rsiThresholds.mustSell && !isBacktesting) { // 回测不需要卖出信息
         //15分钟 不发送北交所卖出
         if (klt === EKLT["15M"] && [...a_beijiaosuo, ...a_xiaofeidianzi].some(item => item.includes(stockCode))) return;
-        sellList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_SELL, '', currentPriceChange, currentTradeStr));
-        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_SELL} ${currentTradeStr}`;
+        sellList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.MUST_SELL, '', currentPriceChange, currentTradeStr, increaseStr));
+        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.MUST_SELL} ${currentTradeStr} ${increaseStr}`;
       } else if (Number(item?.[1]) >= rsiThresholds.sell && !isBacktesting) { // 回测不需要卖出信息
         //15分钟 不发送北交所卖出
         if (klt === EKLT["15M"] && [...a_beijiaosuo, ...a_xiaofeidianzi].some(item => item.includes(stockCode))) return;
-        sellList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.SELL, '', currentPriceChange, currentTradeStr));
-        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.SELL} ${currentTradeStr}`;
+        sellList.push(createEmailItem(item, kltDesc, stockLink, stockName, ERSISuggestion.SELL, '', currentPriceChange, currentTradeStr, increaseStr));
+        return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${ERSISuggestion.SELL} ${currentTradeStr} ${increaseStr}`;
       }
 
     })?.filter(item => !!item);

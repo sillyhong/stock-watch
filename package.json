@@ -25,6 +25,7 @@
     "@types/nodemailer": "^6.4.17",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "decimal.js": "^10.5.0",
     "eslint": "^9",
     "eslint-config-next": "15.1.5",
     "typescript": "^5"

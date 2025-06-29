@@ -121,7 +121,8 @@ export const PrePullDayConfig = {
     [EStockType.A]: {
         [EKLT['5M']]: 7,
         [EKLT['15M']]: 40,// 检查正确 至少 15条数据
-        [EKLT['DAY']]: 90,// 最新的几天准确，距离越长不准确
+        // [EKLT['DAY']]: 90,// 最新的几天准确，距离越长不准确
+        [EKLT['DAY']]: 180,// 最新的几天准确，距离越长不准确; 需要考虑筹码集中度，官方传入的是210
     },
     [EStockType.HK]: {
         [EKLT['5M']]: 7, // 检查正确

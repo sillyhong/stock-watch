@@ -6,8 +6,15 @@ import { EKLT } from "../interface"
 export const formatKlinesData = (sourceData) => {
 
 //所有返回数据对应的数组
-  const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
+const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
     const tempobj = v.split(',')
+    // if(sourceData?.klines?.length -1 === index) {
+    //   // f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61
+    //   // 2025-06-27,166.66,178.40,188.00,165.16,49179,872626769.00,13.68,6.83,11.41,8.18 // 11
+    //   // f51,f52,f53,f54,f55,f59,f60,f61,f56,f57,f58
+    //   // 2025-06-27,166.66,178.40,188.00,165.16,6.83,11.41,8.18 // 8
+    //   console.log('tempobj123', tempobj, 'tempobj.length', tempobj?.length, 'v',v)
+    // }
     return {
       index,
       date: tempobj[0],
@@ -15,9 +22,13 @@ export const formatKlinesData = (sourceData) => {
       close: parseFloat(tempobj[2]),
       high: parseFloat(tempobj[3]),
       low: parseFloat(tempobj[4]),
-      volume: parseFloat(tempobj[5]),
-      volume_money: parseFloat(tempobj[6]),
-      zf: parseFloat(tempobj[7]),
+      // 需要获取最后三位，根据长度获取
+      volume: parseFloat(tempobj[tempobj.length -3 ]),
+      volume_money: parseFloat(tempobj[tempobj.length -2]),
+      zf: parseFloat(tempobj[tempobj.length -1]),
+      // volume: parseFloat(tempobj[5]),
+      // volume_money: parseFloat(tempobj[6]),
+      // zf: parseFloat(tempobj[7]),
       zdf: parseFloat(tempobj[8]),
       zde: parseFloat(tempobj[9]),
       hsl: parseFloat(tempobj[10]),
