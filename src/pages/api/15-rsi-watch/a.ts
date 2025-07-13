@@ -4,6 +4,7 @@ import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
+import { EReqType } from '@/pages/utils/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(ATask)) {
       ATask = cron.schedule('*/15 9-15 * * 1-5', ()=>{
         fetchARSI({
+          reqType: EReqType.EASY_MONEY,
+          klt: EKLT['15M'],
+          currentDate: dayjs()
+        })
+         fetchARSI({
+          reqType: EReqType.FU_TU,
           klt: EKLT['15M'],
           currentDate: dayjs()
         })

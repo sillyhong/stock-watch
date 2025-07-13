@@ -4,6 +4,7 @@ import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
+import { EReqType } from '@/pages/utils/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(ATBackTrendask)) {
       ATBackTrendask = cron.schedule('50 16 * * 1-5', ()=>{
         fetchARSI({
+          reqType: EReqType.EASY_MONEY,
+          klt: EKLT['15M'],
+          currentDate: dayjs(),
+          isBacktesting: true,
+        })
+        fetchARSI({
+          reqType: EReqType.FU_TU,
           klt: EKLT['15M'],
           currentDate: dayjs(),
           isBacktesting: true,
@@ -27,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
-    // rsiData = await fetchARSI({ klt: EKLT['15M'], sendEmail: false, isBacktesting: true})
+    // rsiData = await fetchARSI({ klt: EKLT['15M'], sendEmail: true, isBacktesting: true})
 
     res.status(200).json({ message: 'Cron job set to A [15]RSI backtrend every workday.', data: rsiData });
   } else if (req.method === 'DELETE') {

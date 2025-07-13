@@ -4,6 +4,7 @@ import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
+import { EReqType } from '@/pages/utils/config';
 export const dynamic = 'force-dynamic';
 
 
@@ -17,6 +18,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // 每周一至周五 17:00 执行
       ATask = cron.schedule('40 16 * * 1-5', ()=>{
         fetchARSI({
+          reqType: EReqType.EASY_MONEY,
+          klt: EKLT.DAY,
+          currentDate: dayjs() 
+        })
+        fetchARSI({
+          reqType: EReqType.FU_TU,
           klt: EKLT.DAY,
           currentDate: dayjs() 
         })
@@ -26,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
-    // rsiData = await fetchARSI({klt: EKLT.DAY,sendEmail: false})
+    // rsiData = await fetchARSI({klt: EKLT.DAY,sendEmail: true})
 
     res.status(200).json({ message: 'Cron job set to check A RSI every workday.', data: rsiData });
   } else if (req.method === 'DELETE') {

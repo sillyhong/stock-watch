@@ -1,4 +1,5 @@
 import { Dayjs } from "dayjs"
+import { EReqType } from "../utils/config"
 
 export enum EStockType {
     A = 'A',
@@ -45,5 +46,6 @@ export enum EReqUrlType {
       currentDate?: Dayjs, 
       sendEmail?: boolean,
       isBacktesting?: boolean,
+      reqType?: EReqType
   }
 

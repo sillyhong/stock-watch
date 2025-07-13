@@ -4,6 +4,7 @@ import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
+import { EReqType } from '@/pages/utils/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(ATask)) {
       ATask = cron.schedule('*/5 9-15 * * 1-5', ()=>{
         fetchARSI({
+          reqType: EReqType.EASY_MONEY,
+          klt: EKLT['5M'],
+          currentDate: dayjs()
+        })
+        fetchARSI({
+          reqType: EReqType.FU_TU,
           klt: EKLT['5M'],
           currentDate: dayjs()
         })
@@ -26,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
     
-    rsiData = await fetchARSI({ klt: EKLT['5M'], sendEmail: true})
+    // rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['5M'], sendEmail: true})
 
     res.status(200).json({ message: 'Cron job set to check A RSI every 5 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {
