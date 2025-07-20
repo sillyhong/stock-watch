@@ -4,6 +4,7 @@ import isEmpty from "lodash/isEmpty";
 import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
+import { EReqType } from '@/pages/utils/config';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(HTask)) {
       HTask = cron.schedule('05 */5 9-16 * * 1-5', ()=>{
         fetchHKRSI({
+          reqType: EReqType.EASY_MONEY,
           klt: EKLT['5M'],
           currentDate: dayjs()
         })
