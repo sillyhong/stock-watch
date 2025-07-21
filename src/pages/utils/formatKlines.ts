@@ -1,6 +1,6 @@
 import dayjs from "dayjs"
-import { IFutuStockInfo } from "./config"
 import { EKLT } from "../interface"
+import { IFutuStockInfo } from "../interface/futu"
 
 // 格式化东方财富 klines
 export const formatKlinesData = (sourceData) => {
