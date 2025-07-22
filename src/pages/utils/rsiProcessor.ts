@@ -172,7 +172,7 @@ function processSingleStock({
   const market = sourceData?.market;
   const stockCode = sourceData?.code;
   if (market === undefined || !stockCode || !sourceData?.name) {
-    console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 股票数据不完整，跳过处理 ${{market, stockCode, name: sourceData?.name}}`);
+    console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 数据不完整，跳过处理 ${JSON.stringify({market, stockCode, name: sourceData?.name})}`);
     return null;
   }
 
