@@ -48,6 +48,8 @@ interface IEastmoneyStock {
   [key: string]: unknown;
 }
 
+const currentReqType = EReqType.EASY_MONEY
+
 /**
  * 从JSON文件读取股票数据
  * @param filePath JSON文件路径
@@ -71,7 +73,7 @@ async function readStockDataFromFile(filePath: string, marketName: string): Prom
 
     // 提取股票代码，过滤无效数据
     const stockCodes = stockData
-      .filter(stock => stock?.f12 && typeof stock.f12 === 'string')
+      .filter(stock => stock?.f12 && typeof stock.f12 === 'string' && !stock?.f14?.includes('ST') && !stock?.f14?.includes('退市'))
       .map(stock => stock.f12)
       .filter(code => code.trim().length > 0);
 
@@ -103,19 +105,19 @@ async function getAllMarketStocks(): Promise<string[]> {
   // 合并所有股票代码并去重
   const allStocks = [
     // ...shangzhengStocks,
-    // ...shenzhengStocks,
-    ...beijiaosuoStocks
-  ];
+    ...shenzhengStocks,
+    // ...beijiaosuoStocks
+  ]
 
   // 去重处理
   const uniqueStocks = Array.from(new Set(allStocks));
   
   console.log(`📊 全市场股票统计:`);
-  console.log(`   上证: ${shangzhengStocks.length}只`);
-  console.log(`   深证: ${shenzhengStocks.length}只`);
-  console.log(`   北交所: ${beijiaosuoStocks.length}只`);
-  console.log(`   总计: ${allStocks.length}只`);
-  console.log(`   去重后: ${uniqueStocks.length}只`);
+  console.log(`   上证: ${shangzhengStocks?.length}只`);
+  console.log(`   深证: ${shenzhengStocks?.length}只`);
+  console.log(`   北交所: ${beijiaosuoStocks?.length}只`);
+  console.log(`   总计: ${allStocks?.length}只`);
+  console.log(`   去重后: ${uniqueStocks?.length}只`);
 
   return uniqueStocks;
 }
@@ -139,13 +141,17 @@ async function processAllMarketDayRSI(): Promise<unknown[]> {
 
     // 2. 调用RSI分析处理逻辑
     const rsiResults = await fetchRSIAndSendEmail({
-      reqType: EReqType.EASY_MONEY,
+      reqType: currentReqType,
       stockLists: allStocks,
       stockType: EStockType.A,
       klt: EKLT.DAY, // 使用日线数据
       currentDate: dayjs(),
       sendEmail: true, // 启用邮件通知
-      isBacktesting: false
+      isBacktesting: false,
+      batchDelayRange: {
+        min: 2000,
+        max: 3000,
+      }
     });
 
     console.log(`✅ [${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 全市场日RSI监控完成`);
@@ -196,7 +202,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         totalAnalyzed,
         buySignals: buyCount,
         sellSignals: sellCount,
-        markets: ['上证', '深证', '北交所']
+        markets: ['上证', '深证', '北交所'],
+        requestStats: {
+          requestType: currentReqType,
+          totalRequests: results.length,
+          successRequests: buyCount + sellCount,
+          failedRequests: results.length - (buyCount + sellCount),
+          successRate: results.length === 0 ? '0.00%' : (( (buyCount + sellCount) / results.length * 100 ).toFixed(2) + '%')
+        }
       },
       data: results
     });

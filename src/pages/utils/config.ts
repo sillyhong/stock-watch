@@ -10,7 +10,7 @@ import { IFutuStockInfo, IFutuApiResponse } from "../interface/futu";
 // ================================= 常量定义 =================================
 
 /** 批处理大小：每批次处理的股票数量，避免单次请求过多导致超时或被限制 */
-export const BATCH_SIZE = 10;
+export const BATCH_SIZE = 20;
 
 /** 请求超时时间：120秒，防止长时间等待 */
 export const REQUEST_TIMEOUT = 120000;

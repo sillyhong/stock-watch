@@ -33,7 +33,6 @@ import dayjs from "dayjs";
 import { 
   EReqType, 
   BATCH_DELAY_RANGE, 
-  REQUEST_DELAY_RANGE,
   createBatches,
   createEastmoneyRequest,
   createFutuRequest,
@@ -75,13 +74,15 @@ export const batchFetchStockData = async ({
   stockLists,
   stockType,
   klt,
-  startFormatDay
+  startFormatDay,
+  batchDelayRange = BATCH_DELAY_RANGE
 }: {
   reqType: EReqType;
   stockLists: (string | IFutuStockInfo)[];
   stockType: string;
   klt: number;
   startFormatDay: string;
+  batchDelayRange: { min: number, max: number}
 }): Promise<IBatchFetchResult> => {
   const batches = createBatches(stockLists);
   const allResults: unknown[] = [];
@@ -101,7 +102,7 @@ export const batchFetchStockData = async ({
     const requests = batch.map(async stockId => {
       totalRequestCount++;
       // 随机延迟，避免请求过于频繁
-      await randomDelay(REQUEST_DELAY_RANGE.min, REQUEST_DELAY_RANGE.max);
+      await randomDelay(batchDelayRange.min, batchDelayRange.max);
       
       try {
         let result;

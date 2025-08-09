@@ -33,7 +33,8 @@
  * fetchRSIAndSendEmail.ts (主协调器)
  * ├── dataFetcher.ts (数据获取)
  * ├── rsiProcessor.ts (RSI处理)  
- * └── emailNotifier.ts (邮件通知)
+ * ├── emailNotifier.ts (邮件通知)
+ * └── rsiDatabaseSaver.ts (数据库保存) ⭐ 新增
  * 
  * 🚀 重构收益:
  * - 可维护性: 模块化设计，便于理解和修改
@@ -41,12 +42,18 @@
  * - 可复用性: 模块可被其他功能复用
  * - 扩展性: 便于添加新功能或修改现有逻辑
  * - 类型安全: 改善了类型定义和错误处理
+ * - 数据持久化: 新增RSI数据库存储功能 ⭐
  * 
  * 🔗 API兼容性:
  * - fetchUSRSI: 获取美股RSI数据 (保持不变)
  * - fetchARSI: 获取A股RSI数据 (保持不变)  
  * - fetchHKRSI: 获取港股RSI数据 (保持不变)
  * - fetchRSIAndSendEmail: 主要处理函数 (保持接口不变)
+ * 
+ * 🔄 数据库集成:
+ * - 自动保存RSI分析结果到数据库
+ * - 支持历史数据查询和统计分析
+ * - 异步保存，不影响原有流程性能
  * 
  * =============================================================
  */
@@ -55,11 +62,12 @@ import dayjs, { Dayjs } from "dayjs";
 import { EStockType, EKLT, IFetchUSRSIParams } from "../interface";
 import { IFutuStockInfo } from "../interface/futu";
 import { EasyStockLists, FutuStockLists } from "./stockList";
-import { EReqType, PrePullDayConfig } from "./config";
+import { BATCH_DELAY_RANGE, EReqType, PrePullDayConfig } from "./config";
 import { sortByStockName } from "./sort";
 import { batchFetchStockData, logRequestStatistics } from "./dataFetcher";
 import { processRSIData } from "./rsiProcessor";
 import { sendRSIEmailNotification } from "./emailNotifier";
+import { RSIDatabaseSaver } from "./rsiDatabaseSaver";
 
 // ================================= 核心函数 =================================
 
@@ -137,7 +145,8 @@ export const fetchHKRSI = async (params: IFetchUSRSIParams) => {
  * 2. 计算RSI指标
  * 3. 根据RSI阈值生成买卖建议
  * 4. 发送邮件通知
- * 5. 支持回测模式
+ * 5. 保存RSI数据到数据库 ⭐ 新增
+ * 6. 支持回测模式
  * 
  * @param params 请求参数
  * @returns RSI分析结果数组
@@ -149,7 +158,8 @@ export const fetchRSIAndSendEmail = async ({
   sendEmail = true,
   stockType,
   klt = EKLT['15M'],
-  isBacktesting = false
+  isBacktesting = false,
+  batchDelayRange = BATCH_DELAY_RANGE
 }: {
   reqType: EReqType;
   stockLists: (string | IFutuStockInfo)[];
@@ -158,6 +168,7 @@ export const fetchRSIAndSendEmail = async ({
   currentDate?: Dayjs;
   sendEmail?: boolean;
   isBacktesting?: boolean;
+  batchDelayRange?: { min: number, max: number}
 }) => {
   try {
     // ================================= 数据获取 =================================
@@ -169,7 +180,8 @@ export const fetchRSIAndSendEmail = async ({
       stockLists,
       stockType: stockType.toString(),
       klt,
-      startFormatDay
+      startFormatDay,
+      batchDelayRange
     });
 
     // 打印请求统计
@@ -188,6 +200,7 @@ export const fetchRSIAndSendEmail = async ({
 
     const { rsiDataList, buyList, sellList } = processResult;
 
+
     // ================================= 邮件发送 =================================
     if (sendEmail && (buyList.length > 0 || sellList.length > 0)) {
       try {
@@ -201,6 +214,29 @@ export const fetchRSIAndSendEmail = async ({
         });
       } catch (emailError) {
         console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 邮件发送失败:`, emailError);
+      }
+    }
+
+    // ================================= 数据库保存 ⭐ 新增功能 =================================
+    // easy money
+    if(reqType === EReqType.EASY_MONEY && [EKLT["15M"], EKLT.DAY].includes(klt) && isBacktesting) {
+      try {
+        // 异步保存RSI数据到数据库，不阻塞主流程
+        if (rsiDataList && rsiDataList.length > 0) {
+          RSIDatabaseSaver.saveRSIResults({
+            rsiDataList,
+            stockType,
+            klt,
+            reqType,
+            isBacktesting,
+            currentDate
+          }).catch(error => {
+            console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存异步失败:`, error);
+          });
+        }
+      } catch (databaseError) {
+        // 数据库保存失败不影响主流程
+        console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存失败:`, databaseError);
       }
     }
 
