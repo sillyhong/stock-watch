@@ -62,6 +62,7 @@ const executeRSIWithFallback = async (klt: EKLT, currentDate: dayjs.Dayjs) => {
 
 let ATask: cron.ScheduledTask | null = null;
 let AMorningTask: cron.ScheduledTask | null = null;
+let rsiData
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
@@ -92,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }); 
     }
     
-    const rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['15M'], sendEmail: false})
+    // const rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['15M'], sendEmail: false})
     // const rsiData2 = await fetchARSI({ reqType: EReqType.FU_TU, klt: EKLT['15M'], sendEmail: false})
 
 
