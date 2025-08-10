@@ -220,26 +220,26 @@ export const fetchRSIAndSendEmail = async ({
 
     // ================================= 数据库保存 ⭐ 新增功能 =================================
     // easy money
-    if(reqType === EReqType.EASY_MONEY && [EKLT["15M"], EKLT.DAY].includes(klt) && isBacktesting) {
-      try {
-        // 异步保存RSI数据到数据库，不阻塞主流程
-        if (rsiDataList && rsiDataList.length > 0) {
-          RSIDatabaseSaver.saveRSIResults({
-            rsiDataList,
-            stockType,
-            klt,
-            reqType,
-            isBacktesting,
-            currentDate
-          }).catch(error => {
-            console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存异步失败:`, error);
-          });
-        }
-      } catch (databaseError) {
-        // 数据库保存失败不影响主流程
-        console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存失败:`, databaseError);
-      }
-    }
+    // if(reqType === EReqType.EASY_MONEY && [EKLT["15M"], EKLT.DAY].includes(klt) && isBacktesting) {
+    //   try {
+    //     // 异步保存RSI数据到数据库，不阻塞主流程
+    //     if (rsiDataList && rsiDataList.length > 0) {
+    //       RSIDatabaseSaver.saveRSIResults({
+    //         rsiDataList,
+    //         stockType,
+    //         klt,
+    //         reqType,
+    //         isBacktesting,
+    //         currentDate
+    //       }).catch(error => {
+    //         console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存异步失败:`, error);
+    //       });
+    //     }
+    //   } catch (databaseError) {
+    //     // 数据库保存失败不影响主流程
+    //     console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存失败:`, databaseError);
+    //   }
+    // }
 
     // ================================= 结果返回 =================================
     let finalRSIData = rsiDataList;
