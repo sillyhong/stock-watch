@@ -208,9 +208,10 @@ export const fetchRSIAndSendEmail = async ({
           buyList,
           sellList,
           stockType,
+          reqType,
           klt,
           currentDate,
-          isBacktesting
+          isBacktesting,
         });
       } catch (emailError) {
         console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 邮件发送失败:`, emailError);

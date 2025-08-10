@@ -24,7 +24,7 @@ const sequelize = new Sequelize(
     host: MYSQL_HOST,
     port: Number(MYSQL_PORT),
     dialect: 'mysql',
-    logging: process.env.NODE_ENV === 'development' ? console.log : false,
+    logging: false,//process.env.NODE_ENV === 'development' ? console.log : false,
     define: {
       timestamps: true, // 自动添加createdAt和updatedAt
       underscored: true, // 使用下划线命名

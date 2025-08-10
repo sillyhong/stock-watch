@@ -258,7 +258,7 @@ function processSingleStock({
     }
 
     // 添加到对应的建议列表
-    const emailItem = createEmailItem(item, kltDesc || '', stockLink, stockName, suggestion, backtestingStr, currentPriceChange, currentTradeStr, increaseStr);
+    const emailItem = createEmailItem(item as [string, number], kltDesc || '', stockLink, stockName, suggestion, backtestingStr, currentPriceChange, currentTradeStr, increaseStr);
     
     if (suggestion === ERSISuggestion.MUST_BUY || suggestion === ERSISuggestion.BUY) {
       buyItems.push(emailItem);

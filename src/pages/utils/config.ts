@@ -604,3 +604,12 @@ export const generateEmailTables = (buyList: IEmailListItem[], sellList: IEmailL
 
   return `${createTable(buyList as any, '买入')}${createTable(sellList as any, '卖出')}`;
 };
+
+
+ // 使用正则表达式解析RSI数据字符串
+ export const getTimeMatch = (rsiDataStr: string) => rsiDataStr.match(/\[([^\]]+)\]/)
+ export const getNameMatch = (rsiDataStr: string) =>  rsiDataStr.match(/\]\s*(.+?)\s+(\d+\.?\d*)\s+\[/)
+ export const getRsiMatch = (rsiDataStr: string) =>  rsiDataStr.match(/\]\s*[^0-9]*(\d+\.?\d*)\s+\[/)
+ export const getPriceChangeMatch = (rsiDataStr: string) =>  rsiDataStr.match(/\[([^%\]]*%?)\]/)
+ export const getSuggestionMatch = (rsiDataStr: string) =>  rsiDataStr.match(/➜\s*([^➜]*?)(?:\s+today:|$)/)
+ export const getBacktestMatch = (rsiDataStr: string) =>  rsiDataStr.match(/today:\s*([^next]+?)(?:\s+next:|$)/)

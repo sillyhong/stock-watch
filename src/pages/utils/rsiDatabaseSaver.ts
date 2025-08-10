@@ -27,7 +27,7 @@
 
 import dayjs, { Dayjs } from "dayjs";
 import { EStockType, EKLT, MarketType } from "../interface";
-import { ERSISuggestion, EReqType } from "./config";
+import { ERSISuggestion, EReqType, getBacktestMatch, getNameMatch, getPriceChangeMatch, getRsiMatch, getSuggestionMatch, getTimeMatch } from "./config";
 import RSIService, { IRSISaveData } from "../../services/rsiService";
 
 /**
@@ -163,12 +163,12 @@ export class RSIDatabaseSaver {
   ): IRSIDataParseResult | null {
     try {
       // 使用正则表达式解析RSI数据字符串
-      const timeMatch = rsiDataStr.match(/\[([^\]]+)\]/);
-      const nameMatch = rsiDataStr.match(/\]\s*(.+?)\s+(\d+\.?\d*)\s+\[/);
-      const rsiMatch = rsiDataStr.match(/\]\s*[^0-9]*(\d+\.?\d*)\s+\[/);
-      const priceChangeMatch = rsiDataStr.match(/\[([^%\]]*%?)\]/);
-      const suggestionMatch = rsiDataStr.match(/➜\s*([^➜]*?)(?:\s+today:|$)/);
-      const backtestMatch = rsiDataStr.match(/today:\s*([^next]+?)(?:\s+next:|$)/);
+      const timeMatch = getTimeMatch(rsiDataStr);
+      const nameMatch = getNameMatch(rsiDataStr);
+      const rsiMatch = getRsiMatch(rsiDataStr);
+      const priceChangeMatch = getPriceChangeMatch(rsiDataStr);
+      const suggestionMatch = getSuggestionMatch(rsiDataStr);
+      const backtestMatch = getBacktestMatch(rsiDataStr);
 
       if (!timeMatch || !nameMatch || !rsiMatch) {
         console.warn('无法解析RSI数据字符串:', rsiDataStr.substring(0, 100));
