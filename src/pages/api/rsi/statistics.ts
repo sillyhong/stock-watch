@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import RSIService from '../../../services/rsiService';
+import { ENABLE_DATABASE_STORAGE } from '../../utils/config';
 
 /**
  * RSI统计信息API
@@ -23,6 +24,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 检查数据库存储是否启用
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('数据库存储已禁用，返回默认统计信息');
+      return res.status(200).json({
+        success: true,
+        message: '数据库存储已禁用，返回默认统计信息',
+        data: {
+          raw_data_stats: [],
+          recommendation_stats: [],
+          today_stats: {
+            raw_data_count: 0,
+            recommendation_count: 0,
+          },
+          data_separation: {
+            description: '数据库存储功能已禁用，统计信息不可用',
+            raw_data_table: 'rsi_data (disabled)',
+            recommendation_table: 'rsi_recommendations (disabled)',
+          },
+          note: '系统当前运行在数据库禁用模式下，实时RSI分析功能正常运行'
+        }
+      });
+    }
+
     // 获取统计信息
     const statistics = await RSIService.getRSIStatistics();
 

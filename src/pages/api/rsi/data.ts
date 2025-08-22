@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import RSIService, { IRSIQueryParams } from '../../../services/rsiService';
 import { EStockType, EKLT } from '../../interface';
-import { ERSISuggestion } from '../../utils/config';
+import { ERSISuggestion, ENABLE_DATABASE_STORAGE } from '../../utils/config';
 
 /**
  * RSI数据查询API
@@ -104,6 +104,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({
         success: false,
         message: '排序方向必须是ASC或DESC'
+      });
+    }
+
+    // 检查数据库存储是否启用
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('数据库存储已禁用，返回空的RSI数据响应');
+      return res.status(200).json({
+        success: true,
+        message: '数据库存储已禁用，无法查询历史数据',
+        data: [],
+        pagination: {
+          total: 0,
+          page: pageNum,
+          limit: limitNum,
+          totalPages: 0,
+        },
+        note: '系统当前运行在数据库禁用模式下，RSI分析功能正常但无历史数据查询'
       });
     }
 

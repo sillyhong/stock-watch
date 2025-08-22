@@ -1,5 +1,6 @@
 import SchedulerLog, { EJobType, EMarketType, EExecutionStatus } from './models/SchedulerLog';
 import { Op } from 'sequelize';
+import { ENABLE_DATABASE_STORAGE } from '../pages/utils/config';
 
 // 定时器执行上下文接口
 export interface ISchedulerContext {
@@ -33,7 +34,12 @@ export class SchedulerService {
    * @param context 执行上下文
    * @returns 创建的日志记录
    */
-  static async createExecutionLog(context: ISchedulerContext): Promise<SchedulerLog> {
+  static async createExecutionLog(context: ISchedulerContext): Promise<SchedulerLog | null> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log(`🔄 数据库存储已禁用，跳过任务日志记录: ${context.jobName}`);
+      return null;
+    }
+    
     const now = new Date();
     const log = await SchedulerLog.create({
       job_name: context.jobName,
@@ -61,6 +67,11 @@ export class SchedulerService {
    * @param result 执行结果
    */
   static async recordSuccess(logId: number, result: IExecutionResult): Promise<void> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log(`🔄 数据库存储已禁用，跳过成功日志记录: ${logId}`);
+      return;
+    }
+
     const log = await SchedulerLog.findByPk(logId);
     if (!log) {
       console.error(`❌ 找不到执行日志 ID: ${logId}`);
@@ -78,6 +89,11 @@ export class SchedulerService {
    * @param shouldRetry 是否应该重试
    */
   static async recordFailure(logId: number, result: IExecutionResult, shouldRetry: boolean = true): Promise<void> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log(`🔄 数据库存储已禁用，跳过失败日志记录: ${logId}`);
+      return;
+    }
+
     const log = await SchedulerLog.findByPk(logId);
     if (!log) {
       console.error(`❌ 找不到执行日志 ID: ${logId}`);
@@ -98,6 +114,11 @@ export class SchedulerService {
    * @param logId 日志ID
    */
   static async recordTimeout(logId: number): Promise<void> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log(`🔄 数据库存储已禁用，跳过超时日志记录: ${logId}`);
+      return;
+    }
+
     const log = await SchedulerLog.findByPk(logId);
     if (!log) {
       console.error(`❌ 找不到执行日志 ID: ${logId}`);
@@ -120,7 +141,25 @@ export class SchedulerService {
     executionFunction: () => Promise<T>,
     timeoutMs: number = 30 * 60 * 1000 // 30分钟
   ): Promise<T | null> {
+    // 检查数据库存储是否启用
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log(`🔄 数据库存储已禁用，直接执行任务不记录日志: ${context.jobName}`);
+      try {
+        const result = await executionFunction();
+        console.log(`✅ 任务执行成功 [${context.jobName}] (数据库禁用模式)`);
+        return result;
+      } catch (error) {
+        console.error(`❌ 任务执行失败 [${context.jobName}] (数据库禁用模式):`, error);
+        throw error;
+      }
+    }
+
     const log = await this.createExecutionLog(context);
+    if (!log) {
+      // 如果日志创建失败，直接执行任务
+      return await executionFunction();
+    }
+
     let timeoutHandle: NodeJS.Timeout | null = null;
     let isCompleted = false;
 
@@ -189,6 +228,11 @@ export class SchedulerService {
     jobType?: EJobType,
     marketType?: EMarketType
   ): Promise<SchedulerLog[]> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('🔄 数据库存储已禁用，返回空的重试任务列表');
+      return [];
+    }
+
     const where: Record<string, unknown> = {
       success: false,
       [Op.and]: [
@@ -217,6 +261,23 @@ export class SchedulerService {
    * @returns 执行统计
    */
   static async getExecutionStats(days: number = 7): Promise<Record<string, unknown>> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('🔄 数据库存储已禁用，返回默认执行统计');
+      return {
+        summary: {
+          total_executions: 0,
+          successful_executions: 0,
+          failed_executions: 0,
+          timeout_executions: 0,
+          success_rate: 0
+        },
+        by_job_type: [],
+        by_market_type: [],
+        recent_failures: [],
+        note: '数据库存储已禁用，统计数据不可用'
+      };
+    }
+
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -283,6 +344,11 @@ export class SchedulerService {
    * @returns 清理的记录数
    */
   static async cleanupOldLogs(retentionDays: number = 30): Promise<number> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('🔄 数据库存储已禁用，跳过日志清理操作');
+      return 0;
+    }
+
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 

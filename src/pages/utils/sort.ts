@@ -42,7 +42,7 @@ export const normalSortByStockName = (list) => {
   return list.sort((a, b) => {
     const stockNameA = a.split("</td><td>")[2]; // Assuming stock name is in the third column
     const stockNameB = b.split("</td><td>")[2];
-    return stockNameA.localeCompare(stockNameB);
+    return stockNameA?.localeCompare(stockNameB);
   });
 };
 

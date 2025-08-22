@@ -1,7 +1,7 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import RSIService, { IRSIQueryParams } from '../../../services/rsiService';
 import { EStockType, EKLT } from '../../interface';
-import { ERSISuggestion } from '../../utils/config';
+import { ERSISuggestion, ENABLE_DATABASE_STORAGE } from '../../utils/config';
 
 /**
  * RSI推荐数据查询API
@@ -28,6 +28,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 检查数据库存储是否启用
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('数据库存储已禁用，返回空的RSI推荐数据响应');
+      return res.status(200).json({
+        success: true,
+        message: '数据库存储已禁用，无法查询历史推荐数据',
+        data: [],
+        pagination: {
+          total: 0,
+          page: parseInt(req.query.page as string) || 1,
+          limit: parseInt(req.query.limit as string) || 20,
+          totalPages: 0,
+        },
+        note: '系统当前运行在数据库禁用模式下，实时RSI分析和邮件推荐功能正常但无历史推荐查询'
+      });
+    }
+
     // 解析查询参数
     const {
       page = '1',

@@ -194,11 +194,12 @@ const optimizeEmailListByBacktest = (emailList: string[]): string[] => {
 };
 
 /**
- * 计算回测统计信息
+ * 计算回测统计信息 - 仅统计当天回测日期的数据
  * @param emailList 邮件列表
+ * @param currentDate 当前日期，用于过滤当天数据
  * @returns 回测统计数据
  */
-const calculateBacktestStatistics = (emailList: string[]): IBacktestStatistics => {
+const calculateBacktestStatistics = (emailList: string[], currentDate?: Dayjs): IBacktestStatistics => {
   if (emailList.length === 0) {
     return {
       totalUniqueStocks: 0,
@@ -213,12 +214,17 @@ const calculateBacktestStatistics = (emailList: string[]): IBacktestStatistics =
     };
   }
 
-  // 解析所有股票的回测信息
+  // 获取当天日期字符串 (YYYY-MM-DD)
+  const targetDate = currentDate ? currentDate.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD');
+  console.log(`[回测统计] 过滤目标日期: ${targetDate}`);
+
+  // 解析所有股票的回测信息（不进行日期过滤）
   const stockInfos = emailList
     .map(parseStockBacktestInfo)
     .filter((info): info is IStockBacktestInfo => info !== null);
 
   if (stockInfos.length === 0) {
+    console.warn(`[回测统计] 无有效回测数据可解析`);
     return {
       totalUniqueStocks: 0,
       positiveCount: 0,
@@ -241,12 +247,73 @@ const calculateBacktestStatistics = (emailList: string[]): IBacktestStatistics =
     return groups;
   }, {} as Record<string, IStockBacktestInfo[]>);
 
-  // 获取每只股票的最优backtestMatch值
+  // 获取每只股票的最优backtestMatch值，并根据当天日期进行过滤
   const optimalBacktestValues: number[] = [];
+  let totalStocksBeforeFilter = 0;
+  let filteredStocksCount = 0;
+  
   Object.values(stockGroups).forEach(stockInfos => {
     const optimal = selectOptimalStockByBacktest(stockInfos);
-    optimalBacktestValues.push(optimal.backtestMatch);
+    totalStocksBeforeFilter++;
+    
+    // 从optimal.originalItem中提取日期进行过滤
+    const dateMatch = optimal.originalItem.match(/<td>([^<]*)<\/td>/);
+    if (dateMatch) {
+      const itemDateStr = dateMatch[1].trim();
+      
+      // 尝试解析日期，支持多种格式
+      let itemDate: string;
+      const parsedDate = dayjs(itemDateStr);
+      
+      if (parsedDate.isValid()) {
+        itemDate = parsedDate.format('YYYY-MM-DD');
+      } else {
+        // 如果日期解析失败，尝试提取日期部分
+        const dateOnlyMatch = itemDateStr.match(/(\d{4}-\d{2}-\d{2})/);
+        if (dateOnlyMatch) {
+          itemDate = dayjs(dateOnlyMatch[1]).format('YYYY-MM-DD');
+        } else {
+          console.warn(`[回测统计] 无法解析日期格式: ${itemDateStr} - ${optimal.stockName}`);
+          // 无法解析日期时，保留数据
+          optimalBacktestValues.push(optimal.backtestMatch);
+          filteredStocksCount++;
+          return;
+        }
+      }
+      
+      const isToday = itemDate === targetDate;
+      
+      if (isToday) {
+        optimalBacktestValues.push(optimal.backtestMatch);
+        filteredStocksCount++;
+      } else {
+        console.log(`[回测统计] 跳过非当天数据: ${optimal.stockName} - ${itemDateStr} (解析为: ${itemDate})`);
+      }
+    } else {
+      console.warn(`[回测统计] 无法提取日期信息: ${optimal.stockName} - ${optimal.originalItem.substring(0, 100)}...`);
+      // 无法提取日期时，保留数据
+      optimalBacktestValues.push(optimal.backtestMatch);
+      filteredStocksCount++;
+    }
   });
+
+  console.log(`[回测统计] 日期过滤结果: 股票分组数 ${totalStocksBeforeFilter} -> 当天股票数 ${filteredStocksCount}`);
+
+  // 检查是否有当天的数据
+  if (optimalBacktestValues.length === 0) {
+    console.warn(`[回测统计] 当天(${targetDate})无有效回测数据`);
+    return {
+      totalUniqueStocks: 0,
+      positiveCount: 0,
+      negativeCount: 0,
+      zeroCount: 0,
+      positivePercentage: 0,
+      negativePercentage: 0,
+      zeroPercentage: 0,
+      averagePositive: 0,
+      averageNegative: 0
+    };
+  }
 
   // 统计正值、负值、零值的数量
   const positiveValues = optimalBacktestValues.filter(value => value > 0);
@@ -405,10 +472,10 @@ export const sendRSIEmailNotification = async (params: IEmailNotificationParams)
   if (isBacktesting && isOptimizeEmailList && (optimizedBuyList.length > 0 || optimizedSellList.length > 0)) {
     // 合并买入和卖出列表进行统计分析
     const allEmailList = [...optimizedBuyList, ...optimizedSellList];
-    const statistics = calculateBacktestStatistics(allEmailList);
+    const statistics = calculateBacktestStatistics(allEmailList, currentDate);
     statisticsHtml = generateBacktestStatisticsHtml(statistics, isBacktesting);
     
-    console.log(`[回测统计] 总股票: ${statistics.totalUniqueStocks}, 盈利: ${statistics.positiveCount}(${statistics.positivePercentage}%), 亏损: ${statistics.negativeCount}(${statistics.negativePercentage}%)`);
+    console.log(`[回测统计] 当天(${currentDate.format('YYYY-MM-DD')})股票统计: 总股票: ${statistics.totalUniqueStocks}, 盈利: ${statistics.positiveCount}(${statistics.positivePercentage}%), 亏损: ${statistics.negativeCount}(${statistics.negativePercentage}%)`);
   }
   
   const backDataStr = `${isBacktesting ? '[回测]' : ''}`

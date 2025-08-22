@@ -2,7 +2,7 @@ import dayjs from 'dayjs';
 import RSIData from './models/RSIData';
 import RSIRecommendation from './models/RSIRecommendation';
 import { EStockType, EKLT, getEKLTDesc } from '../pages/interface';
-import { ERSISuggestion } from '../pages/utils/config';
+import { ERSISuggestion, ENABLE_DATABASE_STORAGE } from '../pages/utils/config';
 import { Op } from 'sequelize';
 
 // 定义RSI原始数据保存接口
@@ -100,6 +100,11 @@ export class RSIService {
    * @returns 保存的原始数据记录
    */
   static async batchSaveRSIRawData(rsiRawDataList: IRSIRawData[]): Promise<any[]> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('🔄 数据库存储已禁用，跳过RSI原始数据保存');
+      return [];
+    }
+
     if (rsiRawDataList.length === 0) {
       console.log('🔄 没有RSI原始数据需要保存');
       return [];
@@ -146,6 +151,11 @@ export class RSIService {
    * @param recommendationDataList RSI推荐数据列表
    */
   static async batchSaveRSIRecommendations(recommendationDataList: IRSIRecommendationData[]): Promise<void> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('🔄 数据库存储已禁用，跳过RSI推荐数据保存');
+      return;
+    }
+
     if (recommendationDataList.length === 0) {
       console.log('🔄 没有RSI推荐数据需要保存');
       return;
@@ -199,6 +209,11 @@ export class RSIService {
    * @param rsiDataList RSI数据列表
    */
   static async batchSaveRSIData(rsiDataList: IRSISaveData[]): Promise<void> {
+    if (!ENABLE_DATABASE_STORAGE) {
+      console.log('🔄 数据库存储已禁用，跳过RSI数据保存');
+      return;
+    }
+
     if (rsiDataList.length === 0) {
       console.log('🔄 没有RSI数据需要保存');
       return;
