@@ -1,4 +1,7 @@
-import dayjs, { Dayjs } from "dayjs";
+import dayjs from "dayjs";
+import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
+
+dayjs.extend(isSameOrAfter);
 import { EKLT, EStockType, IEmailListItem, IKlineItem, IPriceChangeData, IRSICalculationData, IStockData } from "../interface"
 import { CYQCalculator } from "@/modules/tools/indicator/cyq";
 import axios from "axios";
@@ -43,11 +46,12 @@ export const FUTU_FIXED_PARAMS = {
   endTimestamp: "1767110400000" // 2025-12-31 00:00:00
 };
 
+// 静态配置，美股时间现在通过getUSMarketHours动态获取
 export const MarketCloseHour = {
   [EStockType.A]: 15,
   [EStockType.HK]: 16,
-  [EStockType.US]: 5,
- } 
+  [EStockType.US]: 4,  // 这个值现在动态计算，保留作为默认值
+} 
 
 export const MarketOpenSetting = {
  [EStockType.A]: {
@@ -59,8 +63,8 @@ export const MarketOpenSetting = {
   marketCloseHour: '16:00',
  },
  [EStockType.US]: {
-  marketOpenHour: '22:30',
-  marketCloseHour: '04:00',
+  marketOpenHour: '22:30',  // 这个值现在动态计算，保留作为默认值
+  marketCloseHour: '05:00', // 更新为非夏令时的收盘时间作为默认值
  },
 } 
 
@@ -177,21 +181,65 @@ export const EFutuFetchUrl = {
 
 // ================================= 常量定义 =================================
 
-
-const isMarketOpen = (marketOpenHour: string, marketCloseHour: string, currentDate: Dayjs): boolean => {
-  const marketOpenTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketOpenHour}`, 'YYYY-MM-DD HH:mm:ss');
-  // 延长5s
-  let marketCloseTime = dayjs(`${currentDate.format('YYYY-MM-DD')} ${marketCloseHour}:05`, 'YYYY-MM-DD HH:mm:ss');
-
-  // If the market close time is earlier than the open time, it means the market closes after midnight
-  if (marketCloseTime.isBefore(marketOpenTime)) {
-      marketCloseTime = marketCloseTime.add(1, 'day');
+/**
+ * 判断给定日期是否为美股夏令时
+ * 夏令时：每年3月第二个周日 02:00 开始，至11月第一个周日 02:00 结束
+ * @param date 要判断的日期，默认为当前日期
+ * @returns 是否为夏令时
+ */
+export const isDST = (date: dayjs.Dayjs = dayjs()): boolean => {
+  const year = date.year();
+  
+  // 计算3月第二个周日（夏令时开始）
+  const march = dayjs(`${year}-03-01`);
+  let marchFirstSunday = march.day(0); // 获取3月第一个周日
+  // 如果3月1日之后才是第一个周日，则需要调整
+  if (marchFirstSunday.month() < 2) {
+    marchFirstSunday = marchFirstSunday.add(7, 'days');
   }
-
-  console.log("🚀 ~ isMarketOpen ~ currentDate:", currentDate.format('YYYY-MM-DD HH:mm:ss'), 'marketOpenTime:', marketOpenTime.format('YYYY-MM-DD HH:mm:ss'), 'marketCloseTime:', (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)), (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime)));
-
-  return (currentDate.isAfter(marketOpenTime) || currentDate.isSame(marketOpenTime)) && (currentDate.isBefore(marketCloseTime) || currentDate.isSame(marketCloseTime));
+  const dstStart = marchFirstSunday.add(7, 'days'); // 第二个周日
+  
+  // 计算11月第一个周日（夏令时结束）
+  const november = dayjs(`${year}-11-01`);
+  let novemberFirstSunday = november.day(0); // 获取11月第一个周日
+  // 如果11月1日之后才是第一个周日，则需要调整
+  if (novemberFirstSunday.month() < 10) {
+    novemberFirstSunday = novemberFirstSunday.add(7, 'days');
+  }
+  
+  // 判断当前日期是否在夏令时范围内（包含开始日，不包含结束日）
+  return date.isSameOrAfter(dstStart, 'day') && date.isBefore(novemberFirstSunday, 'day');
 };
+
+/**
+ * 获取美股当前的开盘收盘时间（北京时间）
+ * @param date 要判断的日期，默认为当前日期
+ * @returns 开盘收盘时间配置
+ */
+export const getUSMarketHours = (date: dayjs.Dayjs = dayjs()) => {
+  if (isDST(date)) {
+    // 夏令时：21:30-04:00（次日）
+    return {
+      openHour: 21,
+      openMinute: 30,
+      closeHour: 4,
+      closeMinute: 0,
+      openTimeStr: '21:30',
+      closeTimeStr: '04:00'
+    };
+  } else {
+    // 标准时间：22:30-05:00（次日）
+    return {
+      openHour: 22,
+      openMinute: 30,
+      closeHour: 5,
+      closeMinute: 0,
+      openTimeStr: '22:30',
+      closeTimeStr: '05:00'
+    };
+  }
+};
+
 
 
 /**
@@ -351,8 +399,13 @@ export const processFutuData = (eastmoneyData: unknown, stockLists: (string | IF
  */
 export const calculateChipConcentration = (RSIData: IRSICalculationData): boolean => {
   try {
-    // 使用深拷贝避免修改原数据
-    const calculator = new CYQCalculator(JSON.parse(JSON.stringify(RSIData?.full_klines)));
+    // 使用深拷贝避免修改原数据，修复构造函数参数
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const calculator = new (CYQCalculator as any)(
+      JSON.parse(JSON.stringify(RSIData?.full_klines)), 
+      500,  // accuracyFactor: 精度因子，使用500提高计算精度
+      90    // range: 计算范围，使用90天
+    );
     
     // 计算最近三天的筹码集中度
     const todayResult = calculator.calc(RSIData?.full_klines?.length - 1);
@@ -388,7 +441,15 @@ export const calculatePriceChangeData = (RSIData: IRSICalculationData, stockType
     const time = dayjs(kline?.date).format('YYYY-MM-DD HH:mm');
     const hour = dayjs(kline?.date).hour();
     const minute = dayjs(kline?.date).minute();
-    const closeHourConfig = MarketCloseHour[stockType];
+    
+    // 动态获取美股收盘时间
+    let closeHourConfig: number;
+    if (stockType === EStockType.US) {
+      const klineDate = dayjs(kline?.date);
+      closeHourConfig = getUSMarketHours(klineDate).closeHour;
+    } else {
+      closeHourConfig = MarketCloseHour[stockType];
+    }
 
     // 记录收盘价格
     if (hour === closeHourConfig && minute === 0) {
@@ -419,7 +480,9 @@ export const calculatePriceChangeData = (RSIData: IRSICalculationData, stockType
       // 处理最后一个数据点
       const isLastIndex = index === RSIData?.full_klines.length - 1;
       if (previousClose && isLastIndex) {
-        const isMarketClosed = dayjs().isAfter(dayjs().hour(closeHourConfig));
+        const isMarketClosed = stockType === EStockType.US 
+          ? dayjs().isAfter(dayjs().hour(getUSMarketHours().closeHour))
+          : dayjs().isAfter(dayjs().hour(closeHourConfig));
         const diffTime = isMarketClosed ? 2 : 1;
         
         if (closeTimeMapDates.length >= diffTime) {
@@ -485,9 +548,16 @@ export const shouldFilterByTime = (diffInMinutes: number, klt: EKLT, isBacktesti
  * @param isBacktesting 是否回测模式
  * @returns RSI建议类型，如果不符合任何条件返回null
  */
+interface IRSIThresholds {
+  buy: number;
+  mustBuy: number;
+  sell: number;
+  mustSell: number;
+}
+
 export const processRSISuggestion = (
   rsiValue: number,
-  rsiThresholds: any,
+  rsiThresholds: IRSIThresholds,
   stockCode: string,
   klt: EKLT,
   isBacktesting: boolean
@@ -588,8 +658,9 @@ export const generateEmailTables = (buyList: IEmailListItem[], sellList: IEmailL
   const createTable = (list: IEmailListItem[], suggestionType: '买入' | '卖出') => {
     if (list.length === 0) return '';
     
-    const rows = list.map((item: any) => {
-      const cells = item.split('</td><td>').map((cell: string) => `<td style="${tdStyle}">${cell}</td>`);
+    const rows = list.map((item: IEmailListItem) => {
+      const itemStr = typeof item === 'string' ? item : String(item);
+      const cells = itemStr.split('</td><td>').map((cell: string) => `<td style="${tdStyle}">${cell}</td>`);
       return `<tr>${cells.join('')}</tr>`;
     }).join('');
 
@@ -605,7 +676,7 @@ export const generateEmailTables = (buyList: IEmailListItem[], sellList: IEmailL
     </table>`;
   };
 
-  return `${createTable(buyList as any, '买入')}${createTable(sellList as any, '卖出')}`;
+  return `${createTable(buyList, '买入')}${createTable(sellList, '卖出')}`;
 };
 
 
