@@ -162,7 +162,7 @@ async function readStockDataFromFile(filePath: string, marketName: string): Prom
 
     // 提取股票代码，过滤无效数据
     const stockCodes = stockData
-      .filter(stock => stock?.f12 && typeof stock.f12 === 'string' && !stock?.f14?.includes('ST') && !stock?.f14?.includes('退市'))
+      .filter(stock => stock?.f12 && typeof stock.f12 === 'string' && !stock?.f14?.includes('ST') && !stock?.f14?.includes('退市') && !stock?.f14?.endsWith('退'))
       .map(stock => stock.f12)
       .filter(code => code.trim().length > 0);
 

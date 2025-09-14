@@ -1,6 +1,7 @@
 import { AStockList, AStockList_Futu_Token } from "../data/astock/astock"
 import { a_bantaoti, a_bantaoti_futu_token } from "../data/astock/bandaoti"
 import { a_beijiaosuo } from "../data/astock/beijiaosuo"
+import { a_shangyebaihuo } from "../data/astock/shangyebaihuo"
 import { a_xiaofeidianzi, a_xiaofeidianzi_futu_token } from "../data/astock/xiaofeidanzi"
 import { a_zhishu } from "../data/astock/zhishu"
 import { EKLT, EStockType } from "../interface"
@@ -63,7 +64,7 @@ export const EasyStockLists = {
     [EStockType.US]: USStockList,
   },
   [EKLT["DAY"]] : {
-    [EStockType.A]: [...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo],
+    [EStockType.A]: [...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo, ...a_shangyebaihuo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
