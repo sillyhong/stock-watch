@@ -65,6 +65,7 @@ interface IStockBacktestInfo {
   stockName: string;
   backtestMatch: number;
   originalItem: string;
+  date: string; // 新增日期字段，格式为 YYYY-MM-DD
 }
 
 /**
@@ -83,11 +84,36 @@ interface IBacktestStatistics {
 }
 
 /**
- * 从HTML格式的RSI数据字符串中解析股票名称和backtestMatch值
+ * 从HTML格式的RSI数据字符串中解析股票名称、backtestMatch值和日期
  * 传入格式: <tr><td>2025-08-08 09:45</td><td>15RSI</td><td><a href="https://quote.eastmoney.com/sh688110.html?from=classic#fullScreenChart" style="color: green;">[创]东芯股份</a></td><td>18.661 [-6.71%]</td><td style="color: red;">立即买入🚀 today: +7.48%   </td></tr>
  */
 const parseStockBacktestInfo = (rsiDataStr: string): IStockBacktestInfo | null => {
   try {
+    // 解析日期 - 从第一个<td>中提取
+    const dateMatch = rsiDataStr.match(/<td>([^<]*)<\/td>/);
+    if (!dateMatch) {
+      console.warn('无法解析日期:', rsiDataStr.substring(0, 100));
+      return null;
+    }
+    
+    const dateTimeStr = dateMatch[1].trim();
+    let formattedDate: string;
+    
+    // 尝试解析日期，支持多种格式
+    const parsedDate = dayjs(dateTimeStr);
+    if (parsedDate.isValid()) {
+      formattedDate = parsedDate.format('YYYY-MM-DD');
+    } else {
+      // 如果日期解析失败，尝试提取日期部分
+      const dateOnlyMatch = dateTimeStr.match(/(\d{4}-\d{2}-\d{2})/);
+      if (dateOnlyMatch) {
+        formattedDate = dayjs(dateOnlyMatch[1]).format('YYYY-MM-DD');
+      } else {
+        console.warn('无法解析日期格式:', dateTimeStr);
+        return null;
+      }
+    }
+    
     // 解析股票名称 - 从<a>标签中提取
     const stockNameMatch = rsiDataStr.match(/<a[^>]*>([^<]+)<\/a>/);
     if (!stockNameMatch) {
@@ -100,27 +126,39 @@ const parseStockBacktestInfo = (rsiDataStr: string): IStockBacktestInfo | null =
     stockName = stockName.replace(/^\[.\]/, '');
     
     // 解析backtestMatch值 - 从最后一个<td>中提取today后面的百分比值
-    const lastTdMatch = rsiDataStr.match(/<td[^>]*>([^<]*today:[^<]*)<\/td>/);
-    if (!lastTdMatch) {
-      console.warn('无法找到包含today的td标签:', rsiDataStr.substring(0, 100));
+    const lastTdMatch = rsiDataStr.match(/<td[^>]*>([^<]*)<\/td>/g);
+    if (!lastTdMatch || lastTdMatch.length === 0) {
+      console.warn('无法找到td标签:', rsiDataStr.substring(0, 100));
       return null;
     }
     
-    const todayContent = lastTdMatch[1];
+    // 获取最后一个td标签的内容（买入建议列）
+    const lastTdContent = lastTdMatch[lastTdMatch.length - 1];
+    const suggestionContent = lastTdContent.replace(/<\/?td[^>]*>/g, '');
     
-    // 从today内容中提取百分比值
-    const percentageMatch = todayContent.match(/today:\s*([+\-]?\d+\.?\d*)%/);
-    if (!percentageMatch) {
-      console.warn('无法解析today百分比值:', todayContent);
-      return null;
+    let backtestValue = 0;
+    
+    // 尝试多种格式解析backtestMatch值
+    // 1. today: +X.XX% 格式
+    let percentageMatch = suggestionContent.match(/today:\s*([+\-]?\d+\.?\d*)%/);
+    if (percentageMatch) {
+      backtestValue = parseFloat(percentageMatch[1]);
+    } else {
+      // 2. [Max]: +X.XX% 格式
+      percentageMatch = suggestionContent.match(/\[Max\]:\s*([+\-]?\d+\.?\d*)%/);
+      if (percentageMatch) {
+        backtestValue = parseFloat(percentageMatch[1]);
+      }
     }
     
-    const backtestValue = parseFloat(percentageMatch[1]);
+    // console.log(`[解析调试] ${stockName}: 建议内容="${suggestionContent.substring(0, 50)}..." -> backtestValue=${backtestValue}`);
+    
     
     return {
       stockName,
       backtestMatch: backtestValue,
-      originalItem: rsiDataStr
+      originalItem: rsiDataStr,
+      date: formattedDate
     };
   } catch (error) {
     console.warn('解析股票回测信息失败:', error);
@@ -158,9 +196,90 @@ const selectOptimalStockByBacktest = (stockInfos: IStockBacktestInfo[]): IStockB
 };
 
 /**
- * 优化邮件列表：为每只股票选择最优的backtestMatch记录
+ * 根据当天优先+backtestMatch值选择每个股票组内的最优记录
+ * 选择策略：
+ * 1. 优先选择当天的记录（不管backtestMatch值）
+ * 2. 如果当天有多条记录，再按backtestMatch值选择：
+ *    - 正值选最大值
+ *    - 负值选绝对值最大的（即数值最小的）
+ * 3. 如果没有当天记录，才考虑其他天的记录
  */
-const optimizeEmailListByBacktest = (emailList: string[]): string[] => {
+const selectOptimalStockByValue = (stockInfos: IStockBacktestInfo[], currentDate: Dayjs): IStockBacktestInfo => {
+  const currentDateStr = currentDate.format('YYYY-MM-DD');
+  
+  // 分离当天和其他天的记录
+  const todayRecords = stockInfos.filter(info => info.date === currentDateStr);
+  const otherDayRecords = stockInfos.filter(info => info.date !== currentDateStr);
+  
+  // 优先选择当天的记录
+  if (todayRecords.length > 0) {
+    // 如果当天只有一条记录，直接返回
+    if (todayRecords.length === 1) {
+      return todayRecords[0];
+    }
+    
+    // 如果当天有多条记录，按backtestMatch值选择
+    return selectByBacktestValue(todayRecords);
+  }
+  
+  // 如果没有当天记录，从其他天的记录中选择
+  if (otherDayRecords.length > 0) {
+    return selectByBacktestValue(otherDayRecords);
+  }
+  
+  // 保险措施：返回第一个记录
+  return stockInfos[0];
+};
+
+/**
+ * 根据backtestMatch值选择最优记录
+ * 选择策略：
+ * 1. 如果有正值，选择最大的正值
+ * 2. 如果没有正值但有0值和负值，选择负值中绝对值最大的（优先负值）
+ * 3. 如果只有0值，选择0值
+ * 4. 如果只有负值，选择绝对值最大的负值（-2.1比-0.5更好）
+ */
+const selectByBacktestValue = (stockInfos: IStockBacktestInfo[]): IStockBacktestInfo => {
+  // 分离正值、负值、零值
+  const positiveValues = stockInfos.filter(info => info.backtestMatch > 0);
+  const negativeValues = stockInfos.filter(info => info.backtestMatch < 0);
+  const zeroValues = stockInfos.filter(info => info.backtestMatch === 0);
+  
+  // 如果有正值，选择正值中的最大值
+  if (positiveValues.length > 0) {
+    return positiveValues.reduce((max, current) => 
+      current.backtestMatch > max.backtestMatch ? current : max
+    );
+  }
+  
+  // 如果没有正值但有0值和负值，选择负值中绝对值最大的（优先负值）
+  if (zeroValues.length > 0 && negativeValues.length > 0) {
+    return negativeValues.reduce((min, current) => 
+      current.backtestMatch < min.backtestMatch ? current : min
+    );
+  }
+  
+  // 如果只有0值，选择0值
+  if (zeroValues.length > 0) {
+    return zeroValues[0];
+  }
+  
+  // 如果只有负值，选择绝对值最大的负值（-2.1比-0.5更好）
+  if (negativeValues.length > 0) {
+    return negativeValues.reduce((min, current) => 
+      current.backtestMatch < min.backtestMatch ? current : min
+    );
+  }
+  
+  // 保险措施：返回第一个记录
+  return stockInfos[0];
+};
+
+/**
+ * 优化邮件列表：为每天每只股票选择最优的backtestMatch记录（旧版本）
+ * @deprecated 使用optimizeEmailListByTime替代，该函数基于时间选择最新记录
+ */
+export const optimizeEmailListByBacktest = (emailList: string[]): string[] => {
   if (emailList.length === 0) return emailList;
   
   // 解析所有股票的回测信息
@@ -169,6 +288,63 @@ const optimizeEmailListByBacktest = (emailList: string[]): string[] => {
     .filter((info): info is IStockBacktestInfo => info !== null);
   
   if (stockInfos.length === 0) return emailList;
+  
+  // 按日期+股票名称分组（组合键格式：日期-股票名称）
+  const stockGroups = stockInfos.reduce((groups, info) => {
+    const groupKey = `${info.date}-${info.stockName}`;
+    if (!groups[groupKey]) {
+      groups[groupKey] = [];
+    }
+    groups[groupKey].push(info);
+    return groups;
+  }, {} as Record<string, IStockBacktestInfo[]>);
+  
+  // 为每个日期-股票组合选择最优记录
+  const optimizedList: string[] = [];
+  const uniqueGroupCount = Object.keys(stockGroups).length;
+  
+  // 统计日期和股票数量
+  const dateStats = stockInfos.reduce((stats, info) => {
+    stats.dates.add(info.date);
+    stats.stocks.add(info.stockName);
+    return stats;
+  }, { dates: new Set<string>(), stocks: new Set<string>() });
+  
+  Object.values(stockGroups).forEach(stockInfos => {
+    const optimal = selectOptimalStockByBacktest(stockInfos);
+    optimizedList.push(optimal.originalItem);
+  });
+  
+  console.log(`[邮件优化] 覆盖${dateStats.dates.size}天, ${dateStats.stocks.size}只股票, 共${uniqueGroupCount}个日期-股票组合, 优化前: ${emailList.length}条记录, 优化后: ${optimizedList.length}条记录`);
+  
+  return optimizedList;
+};
+
+/**
+ * 优化邮件列表：基于当天优先+backtestMatch值的新策略
+ * 为每只股票选择最优记录，但保留所有数据，然后按最优记录排序
+ * 同时确保每个股票分组内只有被选中的最优记录才有📍标记
+ */
+const optimizeEmailListByTime = (emailList: string[], currentDate: Dayjs): string[] => {
+  if (emailList.length === 0) return emailList;
+  
+  // console.log(`[当天优先] 开始处理 ${emailList.length} 条记录, 当天日期: ${currentDate.format('YYYY-MM-DD')}`);
+  
+  // 解析所有股票的回测信息
+  const stockInfos = emailList
+    .map((item) => {
+      const info = parseStockBacktestInfo(item);
+      if (info) {
+        // 先移除所有📍标记，后面会重新添加到选中的记录上
+        info.originalItem = info.originalItem.replace(/ 📍/g, '');
+      }
+      return info;
+    })
+    .filter((info): info is IStockBacktestInfo => info !== null);
+  
+  if (stockInfos.length === 0) return emailList;
+  
+  // console.log(`[当天优先] 成功解析 ${stockInfos.length} 条记录`);
   
   // 按股票名称分组
   const stockGroups = stockInfos.reduce((groups, info) => {
@@ -179,18 +355,65 @@ const optimizeEmailListByBacktest = (emailList: string[]): string[] => {
     return groups;
   }, {} as Record<string, IStockBacktestInfo[]>);
   
-  // 为每个股票组选择最优记录
-  const optimizedList: string[] = [];
-  const uniqueStockCount = Object.keys(stockGroups).length;
+  // 为每个股票组选择最优记录，传递当天日期
+  const stockOptimalMap = new Map<string, IStockBacktestInfo>();
   
-  Object.values(stockGroups).forEach(stockInfos => {
-    const optimal = selectOptimalStockByBacktest(stockInfos);
-    optimizedList.push(optimal.originalItem);
+  Object.entries(stockGroups).forEach(([stockName, stockInfos]) => {
+    const optimalInfo = selectOptimalStockByValue(stockInfos, currentDate);
+    stockOptimalMap.set(stockName, optimalInfo);
+    
+    // 为被选中的最优记录添加📍标记（如果是当天的记录）
+    if (optimalInfo.date === currentDate.format('YYYY-MM-DD')) {
+      optimalInfo.originalItem = optimalInfo.originalItem.replace(
+        /<td>([^<]*)<\/td>/,
+        `<td>$1 📍</td>`
+      );
+    }
+    
+    // if (stockInfos.length > 1) {
+    //   const allValues = stockInfos.map(info => `${info.date}(${info.backtestMatch}%)`);
+    //   const isToday = optimalInfo.date === currentDate.format('YYYY-MM-DD');
+    //   console.log(`[当天优先] ${stockName}: ${stockInfos.length}条记录 [${allValues.join(', ')}] -> 选择: ${optimalInfo.date}(${optimalInfo.backtestMatch}%) ${isToday ? '✅当天' : '📅其他天'}`);
+    // }
   });
   
-  console.log(`[邮件优化] 股票数量: ${uniqueStockCount}, 优化前: ${emailList.length}条记录, 优化后: ${optimizedList.length}条记录`);
+  // 按每个股票的最优backtestMatch值排序股票
+  const sortedStockNames = Array.from(stockOptimalMap.keys()).sort((a, b) => {
+    const valueA = stockOptimalMap.get(a)!.backtestMatch;
+    const valueB = stockOptimalMap.get(b)!.backtestMatch;
+    return valueB - valueA; // 从大到小排序
+  });
   
-  return optimizedList;
+  // 按排序后的股票顺序重新组织所有记录
+  const sortedEmailList: string[] = [];
+  
+  sortedStockNames.forEach(stockName => {
+    const stockInfos = stockGroups[stockName];
+    
+    // 将该股票的所有记录按时间顺序排序（保持原有的时间顺序）
+    const sortedStockInfos = stockInfos.sort((a, b) => {
+      // 按日期和时间排序
+      const dateTimeA = new Date(`${a.date} ${a.originalItem.match(/<td>([^<]*)<\/td>/)?.[1]?.split(' ')[1] || '00:00'}`);
+      const dateTimeB = new Date(`${b.date} ${b.originalItem.match(/<td>([^<]*)<\/td>/)?.[1]?.split(' ')[1] || '00:00'}`);
+      return dateTimeA.getTime() - dateTimeB.getTime();
+    });
+    
+    // 添加该股票的所有记录（按时间顺序）
+    sortedStockInfos.forEach(info => {
+      sortedEmailList.push(info.originalItem);
+    });
+  });
+  
+  console.log(`[当天优先] 最终结果: ${sortedStockNames.length}只股票, 保留全部 ${sortedEmailList.length} 条记录, 按当天优先+最优值排序`);
+  
+  // 输出排序结果预览
+  // sortedStockNames.forEach((stockName, index) => {
+  //   const optimal = stockOptimalMap.get(stockName)!;
+  //   const isToday = optimal.date === currentDate.format('YYYY-MM-DD');
+  //   console.log(`${index + 1}. ${stockName}: ${optimal.backtestMatch}% (${optimal.date}) ${isToday ? '✅当天选中' : '📅其他天选中'} (该股票共${stockGroups[stockName].length}条记录)`);
+  // });
+  
+  return sortedEmailList;
 };
 
 /**
@@ -218,12 +441,12 @@ const calculateBacktestStatistics = (emailList: string[], currentDate?: Dayjs): 
   const targetDate = currentDate ? currentDate.format('YYYY-MM-DD') : dayjs().format('YYYY-MM-DD');
   console.log(`[回测统计] 过滤目标日期: ${targetDate}`);
 
-  // 解析所有股票的回测信息（不进行日期过滤）
-  const stockInfos = emailList
+  // 解析所有股票的回测信息
+  const allStockInfos = emailList
     .map(parseStockBacktestInfo)
     .filter((info): info is IStockBacktestInfo => info !== null);
 
-  if (stockInfos.length === 0) {
+  if (allStockInfos.length === 0) {
     console.warn(`[回测统计] 无有效回测数据可解析`);
     return {
       totalUniqueStocks: 0,
@@ -238,8 +461,26 @@ const calculateBacktestStatistics = (emailList: string[], currentDate?: Dayjs): 
     };
   }
 
-  // 按股票名称分组，每只股票只保留最优记录
-  const stockGroups = stockInfos.reduce((groups, info) => {
+  // ⚠️ 修复BUG：先按日期过滤，只保留当天的记录
+  const todayStockInfos = allStockInfos.filter(info => info.date === targetDate);
+  
+  if (todayStockInfos.length === 0) {
+    console.warn(`[回测统计] 当天(${targetDate})无回测数据`);
+    return {
+      totalUniqueStocks: 0,
+      positiveCount: 0,
+      negativeCount: 0,
+      zeroCount: 0,
+      positivePercentage: 0,
+      negativePercentage: 0,
+      zeroPercentage: 0,
+      averagePositive: 0,
+      averageNegative: 0
+    };
+  }
+
+  // 再按股票名称分组，每只股票选择当天的最优记录
+  const stockGroups = todayStockInfos.reduce((groups, info) => {
     if (!groups[info.stockName]) {
       groups[info.stockName] = [];
     }
@@ -247,57 +488,15 @@ const calculateBacktestStatistics = (emailList: string[], currentDate?: Dayjs): 
     return groups;
   }, {} as Record<string, IStockBacktestInfo[]>);
 
-  // 获取每只股票的最优backtestMatch值，并根据当天日期进行过滤
+  // 获取每只股票当天的最优backtestMatch值
   const optimalBacktestValues: number[] = [];
-  let totalStocksBeforeFilter = 0;
-  let filteredStocksCount = 0;
   
   Object.values(stockGroups).forEach(stockInfos => {
     const optimal = selectOptimalStockByBacktest(stockInfos);
-    totalStocksBeforeFilter++;
-    
-    // 从optimal.originalItem中提取日期进行过滤
-    const dateMatch = optimal.originalItem.match(/<td>([^<]*)<\/td>/);
-    if (dateMatch) {
-      const itemDateStr = dateMatch[1].trim();
-      
-      // 尝试解析日期，支持多种格式
-      let itemDate: string;
-      const parsedDate = dayjs(itemDateStr);
-      
-      if (parsedDate.isValid()) {
-        itemDate = parsedDate.format('YYYY-MM-DD');
-      } else {
-        // 如果日期解析失败，尝试提取日期部分
-        const dateOnlyMatch = itemDateStr.match(/(\d{4}-\d{2}-\d{2})/);
-        if (dateOnlyMatch) {
-          itemDate = dayjs(dateOnlyMatch[1]).format('YYYY-MM-DD');
-        } else {
-          console.warn(`[回测统计] 无法解析日期格式: ${itemDateStr} - ${optimal.stockName}`);
-          // 无法解析日期时，保留数据
-          optimalBacktestValues.push(optimal.backtestMatch);
-          filteredStocksCount++;
-          return;
-        }
-      }
-      
-      const isToday = itemDate === targetDate;
-      
-      if (isToday) {
-        optimalBacktestValues.push(optimal.backtestMatch);
-        filteredStocksCount++;
-      } else {
-        console.log(`[回测统计] 跳过非当天数据: ${optimal.stockName} - ${itemDateStr} (解析为: ${itemDate})`);
-      }
-    } else {
-      console.warn(`[回测统计] 无法提取日期信息: ${optimal.stockName} - ${optimal.originalItem.substring(0, 100)}...`);
-      // 无法提取日期时，保留数据
-      optimalBacktestValues.push(optimal.backtestMatch);
-      filteredStocksCount++;
-    }
+    optimalBacktestValues.push(optimal.backtestMatch);
   });
 
-  console.log(`[回测统计] 日期过滤结果: 股票分组数 ${totalStocksBeforeFilter} -> 当天股票数 ${filteredStocksCount}`);
+  console.log(`[回测统计] 当天数据统计: 原始记录 ${allStockInfos.length}条 -> 当天记录 ${todayStockInfos.length}条 -> 去重后 ${optimalBacktestValues.length}只股票`);
 
   // 检查是否有当天的数据
   if (optimalBacktestValues.length === 0) {
@@ -449,22 +648,25 @@ export const sendRSIEmailNotification = async (params: IEmailNotificationParams)
 
   console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 准备发送邮件: 买入${buyList.length}个, 卖出${sellList.length}个`);
   
-  // ================================= 新功能：backtestMatch优化 =================================
-  // 根据backtestMatch值优化邮件列表，每只股票只保留最优记录
-  const optimizedBuyList = isOptimizeEmailList ? optimizeEmailListByBacktest(buyList) : buyList;
-  const optimizedSellList = isOptimizeEmailList ? optimizeEmailListByBacktest(sellList) : sellList;
+  // ================================= 新功能：当天优先策略 =================================
+  // 根据当天优先+backtestMatch值优化邮件列表，每只股票优先选择当天记录，然后按backtestMatch排序
+  const optimizedBuyList = isOptimizeEmailList ? optimizeEmailListByTime(buyList, currentDate) : buyList;
+  const optimizedSellList = isOptimizeEmailList ? optimizeEmailListByTime(sellList, currentDate) : sellList;
   
   // 排序：优先级排序 + 股票名称排序
   const sortedBuyList = [...optimizedBuyList];
   const sortedSellList = [...optimizedSellList];
   
-  sortListBySuggestion(sortedBuyList, ERSISuggestion.MUST_BUY);
-  sortListBySuggestion(sortedSellList, ERSISuggestion.MUST_SELL);
-  
-  if (isBacktesting || klt === EKLT.DAY) {
-    const finalBuyList = sortByStockName(sortedBuyList);
-    normalSortByStockName(sortedSellList);
-    sortedBuyList.splice(0, sortedBuyList.length, ...finalBuyList);
+  // ⚠️ 当使用优化函数时，跳过所有额外的排序以保持我们的当天优先+backtestMatch排序
+  if (!isOptimizeEmailList) {
+    sortListBySuggestion(sortedBuyList, ERSISuggestion.MUST_BUY);
+    sortListBySuggestion(sortedSellList, ERSISuggestion.MUST_SELL);
+    
+    if (isBacktesting || klt === EKLT.DAY) {
+      const finalBuyList = sortByStockName(sortedBuyList);
+      normalSortByStockName(sortedSellList);
+      sortedBuyList.splice(0, sortedBuyList.length, ...finalBuyList);
+    }
   }
 
   // ================================= 生成回测统计信息 =================================
@@ -483,7 +685,12 @@ export const sendRSIEmailNotification = async (params: IEmailNotificationParams)
 
   // 生成邮件内容
   const kltDesc = getEKLTDesc(klt);
-  const originalEmailContent = generateEmailTables(sortedBuyList as unknown as IEmailListItem[], sortedSellList as unknown as IEmailListItem[]);
+  
+  // 应用高亮逻辑，但📍标记已在优化函数中处理
+  const enhancedBuyList = highlightTodayRecords(sortedBuyList, currentDate);
+  const enhancedSellList = highlightTodayRecords(sortedSellList, currentDate);
+  
+  const originalEmailContent = generateEmailTables(enhancedBuyList as unknown as IEmailListItem[], enhancedSellList as unknown as IEmailListItem[]);
   
   // 将统计信息添加到邮件内容前面
   const emailContent = statisticsHtml + originalEmailContent;
@@ -505,5 +712,36 @@ export const sendRSIEmailNotification = async (params: IEmailNotificationParams)
       console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [${stockType}]${kltDesc}邮件发送成功`);
       resolve();
     });
+  });
+};
+
+/**
+ * 为当天记录的时间字段添加突出显示（不添加📍标记，📍由optimizeEmailListByTime统一管理）
+ * @param emailList 邮件记录列表
+ * @param currentDate 当前日期
+ * @returns 处理后的邮件记录列表
+ */
+const highlightTodayRecords = (emailList: string[], currentDate: Dayjs): string[] => {
+  if (emailList.length === 0) return emailList;
+  
+  const currentDateStr = currentDate.format('YYYY-MM-DD');
+  
+  return emailList.map((itemStr: string) => {
+    // 解析时间字段中的日期
+    const timeMatch = itemStr.match(/<td>([^<]*)<\/td>/);
+    if (!timeMatch) return itemStr;
+    
+    const timeContent = timeMatch[1];
+    const dateMatch = timeContent.match(/(\d{4}-\d{2}-\d{2})/);
+    
+    if (dateMatch && dateMatch[1] === currentDateStr) {
+      // 为当天记录的时间添加突出样式（保持原有的📍，不重复添加）
+      const hasExistingPin = timeContent.includes('📍');
+      const baseTimeContent = hasExistingPin ? timeContent : timeContent;
+      const enhancedTimeContent = `<span style="color: #ff6b35; font-weight: bold; background-color: #fff3cd; padding: 2px 4px; border-radius: 3px;">${baseTimeContent}</span>`;
+      return itemStr.replace(/<td>([^<]*)<\/td>/, `<td>${enhancedTimeContent}</td>`);
+    }
+    
+    return itemStr;
   });
 }; 

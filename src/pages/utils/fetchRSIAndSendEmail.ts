@@ -249,11 +249,85 @@ export const fetchRSIAndSendEmail = async ({
       finalRSIData = sortByStockName(rsiDataList);
     }
 
-    console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 处理完成，返回${finalRSIData.length}条RSI数据`);
-    return finalRSIData;
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 处理完成，返回${finalRSIData.length}条RSI数据`);
+  return finalRSIData;
+
+} catch (error) {
+  console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 主流程执行失败:`, error);
+  throw error;
+}
+};
+
+/**
+ * 获取RSI数据的完整处理结果（用于批量处理场景）
+ * 
+ * 🔄 **新数据流程设计**（2025-01-27 优化）:
+ * 股票代码 → RSI处理 → HTML格式化（含真实代码） → 直接使用
+ * 
+ * 与 fetchRSIAndSendEmail 的区别：
+ * - ✅ 返回完整的 { rsiDataList, buyList, sellList } 结构
+ * - ✅ buyList 和 sellList 已包含真实的股票代码和完整HTML格式
+ * - ✅ 适用于需要分别处理买入和卖出数据的场景（如 a-all.ts 批量处理）
+ * - ✅ 避免数据丢失和重复解析，提高性能和可靠性
+ * 
+ * 📋 **使用场景**：
+ * - a-all.ts: 全市场股票批量处理，需要收集多批次的买卖建议
+ * - 其他需要直接访问格式化HTML数据的场景
+ * 
+ * @param params 请求参数（与 fetchRSIAndSendEmail 相同）
+ * @returns 完整的RSI处理结果 { rsiDataList, buyList, sellList }
+ */
+export const fetchRSIDataWithDetails = async ({
+  reqType,
+  stockLists = [],
+  currentDate = dayjs(),
+  stockType,
+  klt = EKLT['15M'],
+  isBacktesting = false,
+  batchDelayRange = BATCH_DELAY_RANGE
+}: {
+  reqType: EReqType;
+  stockLists: (string | IFutuStockInfo)[];
+  stockType: EStockType;
+  klt: EKLT;
+  currentDate?: Dayjs;
+  isBacktesting?: boolean;
+  batchDelayRange?: { min: number, max: number}
+}) => {
+  try {
+    // ================================= 数据获取 =================================
+    const prePullDay = PrePullDayConfig[stockType][klt];
+    const startFormatDay = dayjs(currentDate).subtract(prePullDay, 'day').format('YYYYMMDD');
+
+    const fetchResult = await batchFetchStockData({
+      reqType,
+      stockLists,
+      stockType: stockType.toString(),
+      klt,
+      startFormatDay,
+      batchDelayRange
+    });
+
+    // 打印请求统计
+    logRequestStatistics(reqType, fetchResult, stockType.toString(), klt);
+
+    // ================================= RSI数据处理 =================================
+    const processResult = processRSIData({
+      allResults: fetchResult.results,
+      reqType,
+      stockLists,
+      stockType,
+      klt,
+      currentDate,
+      isBacktesting
+    });
+
+    console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 完整处理结果: rsiData=${processResult.rsiDataList.length}, buy=${processResult.buyList.length}, sell=${processResult.sellList.length}`);
+    
+    return processResult; // 返回完整的 { rsiDataList, buyList, sellList }
 
   } catch (error) {
-    console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 主流程执行失败:`, error);
+    console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] RSI详细数据获取失败:`, error);
     throw error;
   }
 };

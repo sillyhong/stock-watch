@@ -78,14 +78,14 @@ export const RSIThresholds = {
       mustSell: 90 
     },
     [EKLT['15M']]: { 
-      buy: 25,
+      buy: 28,
       mustBuy: 20,
       sell: 75,
       mustSell: 85 
     },
     [EKLT['DAY']]: { 
-      buy: 20,
-      mustBuy: 15,
+      buy: 28,
+      mustBuy: 20,
       sell: 75,
       mustSell: 80
     }
