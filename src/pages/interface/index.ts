@@ -23,6 +23,7 @@ export const MarketType = {
 export enum EKLT {
   "5M" = 5,
   "15M" = 15,
+  "30M" = 30,
   "DAY" = 101,
 }
 
@@ -31,6 +32,8 @@ export const getEKLTDesc = (klt: EKLT) => {
     return "5RSI";
   } else if (klt === EKLT["15M"]) {
     return "15RSI";
+  }else if (klt === EKLT["30M"]) {
+    return "30RSI";
   } else if (klt === EKLT.DAY) {
     return "DAYRSI";
   }

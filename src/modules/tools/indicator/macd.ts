@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { numberFixedCut } from ".";
+import { numberFixedCut } from "../index";
 
 /**
  * 计算MACD指标

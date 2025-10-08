@@ -38,7 +38,9 @@
 
 import dayjs, { Dayjs } from "dayjs";
 import { formatKlinesData } from "./formatKlines";
-import { GetConvert } from "@/modules/tools/indicator/origin_old";
+import { GetConvert } from "@/modules/tools/indicator/update_old";
+import { CloseMA } from "@/modules/tools/indicator/ma";
+import { countMACD } from "@/modules/tools/indicator/macd";
 import { 
   EStockType, 
   MarketType, 
@@ -55,12 +57,15 @@ import {
   processFutuData,
   processRSISuggestion,
   shouldFilterByTime,
-  RSIThresholds
+  RSIThresholds,
+  ENABLE_ADVANCED_FEATURES,
 } from "./config";
 import { a_beijiaosuo_cn } from "../data/astock/beijiaosuo";
 import { backtestRSI } from "./backtrend";
 import { formatPriceChange } from "./format";
 import { createEmailItem } from "./emailNotifier";
+import { detectMACDFirstGoldenCross } from "./macdProcessor";
+import { detectMA55FirstBreakthrough } from "./maProcessor";
 
 /**
  * RSI处理结果
@@ -84,50 +89,69 @@ export interface IRSIProcessParams {
   isBacktesting: boolean;
 }
 
+
 /**
- * 处理RSI数据并生成买卖建议
+ * 处理RSI数据并生成买卖建议（真正的异步并行版本）
  * @param params 处理参数
- * @returns RSI处理结果
+ * @returns Promise<RSI处理结果>
  */
-export const processRSIData = (params: IRSIProcessParams): IRSIProcessResult => {
+export const processRSIDataAsync = async (params: IRSIProcessParams): Promise<IRSIProcessResult> => {
   const { allResults, reqType, stockLists, stockType, klt, currentDate, isBacktesting } = params;
   const kltDesc = getEKLTDesc(klt);
+
+  const startTime = Date.now();
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 🚀 开始异步并行处理${allResults.length}个有效响应`);
+
+  // 创建异步任务数组，使用Promise.all实现真正的并行处理
+  const processTasks = allResults.map(async (responseData: unknown, index) => {
+    if (!responseData) {
+      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
+      return null;
+    }
+
+    try {
+      // 使用 Promise.resolve 包装同步操作，让其在微任务队列中执行
+      return await Promise.resolve().then(() => 
+        processSingleStockRSI({
+          responseData,
+          reqType,
+          stockLists,
+          stockType,
+          klt,
+          kltDesc,
+          currentDate,
+          isBacktesting
+        })
+      );
+    } catch (error) {
+      console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 处理股票 ${index} 数据时出错:`, error);
+      return null;
+    }
+  });
+
+  // 并行等待所有任务完成
+  const processResults = await Promise.all(processTasks);
+
+  // 汇总所有处理结果
   const targetRSIData: string[] = [];
   const buyList: string[] = [];
   const sellList: string[] = [];
 
-  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 开始处理${allResults.length}个有效响应`);
-
-  allResults.forEach((responseData: unknown, index) => {
-    if (!responseData) {
-      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
-      return;
-    }
-
-    try {
-      const processResult = processSingleStock({
-        responseData,
-        reqType,
-        stockLists,
-        stockType,
-        klt,
-        kltDesc,
-        currentDate,
-        isBacktesting
-      });
-
-      if (processResult) {
-        const { rsiData, buyItems, sellItems } = processResult;
-        if (rsiData && rsiData.length > 0) {
-          targetRSIData.push(...rsiData);
-        }
-        buyList.push(...buyItems);
-        sellList.push(...sellItems);
+  processResults.forEach((processResult) => {
+    if (processResult) {
+      const { rsiData, buyItems, sellItems } = processResult;
+      if (rsiData && rsiData.length > 0) {
+        targetRSIData.push(...rsiData);
       }
-    } catch (error) {
-      console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 处理股票数据时出错:`, error);
+      buyList.push(...buyItems);
+      sellList.push(...sellItems);
     }
   });
+
+  const endTime = Date.now();
+  const duration = endTime - startTime;
+  const successCount = processResults.filter(r => r !== null).length;
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] ✅ 异步并行处理完成，耗时: ${duration}ms，成功处理: ${successCount}/${allResults.length} 个股票`);
 
   return {
     rsiDataList: targetRSIData,
@@ -137,9 +161,158 @@ export const processRSIData = (params: IRSIProcessParams): IRSIProcessResult => 
 };
 
 /**
+ * 处理RSI数据并生成买卖建议（同步版本，默认使用）
+ * 注意：由于JavaScript是单线程的，同步操作无法真正并行
+ * 如需真正的并行处理，请使用 processRSIDataAsync
+ * @param params 处理参数
+ * @returns RSI处理结果
+ */
+export const processRSIData = (params: IRSIProcessParams): IRSIProcessResult => {
+  const { allResults, reqType, stockLists, stockType, klt, currentDate, isBacktesting } = params;
+  const kltDesc = getEKLTDesc(klt);
+
+  const startTime = Date.now();
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 开始处理${allResults.length}个有效响应（同步模式）`);
+
+  // 使用map处理所有股票数据
+  const processResults = allResults.map((responseData: unknown, index) => {
+    if (!responseData) {
+      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
+      return null;
+    }
+
+    try {
+      return processSingleStockRSI({
+        responseData,
+        reqType,
+        stockLists,
+        stockType,
+        klt,
+        kltDesc,
+        currentDate,
+        isBacktesting
+      });
+    } catch (error) {
+      console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 处理股票 ${index} 数据时出错:`, error);
+      return null;
+    }
+  });
+
+  // 汇总所有处理结果
+  const targetRSIData: string[] = [];
+  const buyList: string[] = [];
+  const sellList: string[] = [];
+
+  processResults.forEach((processResult) => {
+    if (processResult) {
+      const { rsiData, buyItems, sellItems } = processResult;
+      if (rsiData && rsiData.length > 0) {
+        targetRSIData.push(...rsiData);
+      }
+      buyList.push(...buyItems);
+      sellList.push(...sellItems);
+    }
+  });
+
+  const endTime = Date.now();
+  const duration = endTime - startTime;
+  const successCount = processResults.filter(r => r !== null).length;
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 处理完成，耗时: ${duration}ms，成功处理: ${successCount}/${allResults.length} 个股票`);
+
+  return {
+    rsiDataList: targetRSIData,
+    buyList,
+    sellList
+  };
+};
+
+/**
+ * 高级功能处理结果
+ */
+interface IAdvancedFeaturesResult {
+  ma55BreakThrough: boolean;
+  macdGoldenCross: boolean;
+  ma55BreadBreakthrough: string;
+  advancedFeaturesStr: string;
+}
+
+
+/**
+ * 处理高级功能：MA55突破和MACD金叉检测
+ * @param itemTime 当前时间点
+ * @param sourceItem 当前K线数据
+ * @param stockName 股票名称
+ * @param ma55Data MA55数据数组
+ * @param macdData MACD数据数组
+ * @param RSIData RSI完整数据
+ * @returns 高级功能处理结果
+ */
+function processAdvancedFeatures({
+  itemTime,
+  sourceItem,
+  stockName,
+  ma55Data,
+  macdData,
+  RSIData
+}: {
+  itemTime: Dayjs;
+  sourceItem: Record<string, unknown> | undefined;
+  stockName: string;
+  ma55Data: Array<[string, number | string, number | string, number | string, number | string, number | string, number | string]>;
+  macdData: Array<[string, number | string, number | string, number | string]>;
+  RSIData: { full_klines: Record<string, unknown>[] };
+}): IAdvancedFeaturesResult {
+  // 默认返回值
+  let ma55BreakThrough = false;
+  let macdGoldenCross = false;
+  let ma55BreadBreakthrough = '';
+  let advancedFeaturesStr = '';
+
+  // 如果未开启高级功能或数据不完整，直接返回
+  if (!ENABLE_ADVANCED_FEATURES) {
+    // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] 高级功能未开启 ENABLE_ADVANCED_FEATURES=${ENABLE_ADVANCED_FEATURES}`);
+    return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, advancedFeaturesStr };
+  }
+  
+  if (!sourceItem) {
+    // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ${stockName} sourceItem为空，跳过处理`);
+    return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, advancedFeaturesStr };
+  }
+
+  const currentPrice = Number(sourceItem.close);
+  // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ${stockName} 开始高级功能处理 时间:${itemTime.format('YYYY-MM-DD HH:mm')} 价格:${currentPrice.toFixed(2)} MA55数据量:${ma55Data.length} MACD数据量:${macdData.length}`);
+  
+  // ================================= MA55首次突破检测 =================================
+  if (ma55Data.length > 0) {
+    const ma55Result = detectMA55FirstBreakthrough({
+      itemTime,
+      currentPrice,
+      stockName,
+      ma55Data,
+      RSIData
+    });
+    ma55BreakThrough = ma55Result.ma55BreakThrough;
+    ma55BreadBreakthrough = ma55Result.ma55BreadBreakthrough;
+  } 
+
+  // ================================= MACD首次金叉检测 =================================
+  if (macdData.length > 0) {
+    const macdResult = detectMACDFirstGoldenCross({
+      itemTime,
+      stockName,
+      macdData
+    });
+    macdGoldenCross = macdResult.macdGoldenCross;
+    advancedFeaturesStr = macdResult.advancedFeaturesStr;
+  } 
+
+  return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, advancedFeaturesStr };
+}
+
+/**
  * 处理单只股票的RSI数据
  */
-function processSingleStock({
+function processSingleStockRSI({
   responseData,
   reqType,
   stockLists,
@@ -198,6 +371,28 @@ function processSingleStock({
     return null;
   }
 
+  // ================================= 高级功能：MA55和MACD计算 =================================
+  let ma55Data: Array<[string, number | string, number | string, number | string, number | string, number | string, number | string]> = [];
+  let macdData: Array<[string, number | string, number | string, number | string]> = [];
+  
+  if (ENABLE_ADVANCED_FEATURES) {
+    try {
+      // 计算MA55数据
+      const klinesForMA = RSIData.full_klines.map((kline: Record<string, unknown>) => ({
+        date: kline.date as string,
+        close: kline.close as number
+      }));
+      ma55Data = CloseMA(klinesForMA) as Array<[string, number | string, number | string, number | string, number | string, number | string, number | string]>;
+      
+      // 计算MACD数据
+      macdData = countMACD(klinesForMA) as Array<[string, number | string, number | string, number | string]>;
+      
+      // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ${stockName} MA55和MACD计算完成`);
+    } catch (error) {
+      console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ${stockName} MA55/MACD计算失败:`, error);
+    }
+  }
+
   // ================================= 筹码集中度分析 =================================
   let isChipIncrease = false;
   if (reqType === EReqType.EASY_MONEY && klt === EKLT.DAY) {
@@ -209,7 +404,6 @@ function processSingleStock({
 
   // ================================= RSI分析与建议生成 =================================
   const fullKlinesData = GetConvert('RSI', RSIData.full_klines, { market, stockCode, stockName, kltDesc });
-  
   const buyItems: string[] = [];
   const sellItems: string[] = [];
   
@@ -246,6 +440,18 @@ function processSingleStock({
       return null;
     }
 
+    // ================================= 高级功能：MA55过滤和MACD金叉检测 =================================
+    const advancedFeatures = processAdvancedFeatures({
+      itemTime,
+      sourceItem,
+      stockName,
+      ma55Data,
+      macdData,
+      RSIData
+    });
+    
+    const { ma55BreadBreakthrough, advancedFeaturesStr } = advancedFeatures;
+
     // 生成显示字符串和邮件项
     const increaseStr = isChipIncrease ? '💹' : '';
     const stockLink = `https://quote.eastmoney.com/${marketType}${stockCode}.html?from=classic#fullScreenChart`;
@@ -258,7 +464,7 @@ function processSingleStock({
     }
 
     // 添加到对应的建议列表
-    const emailItem = createEmailItem(item as [string, number], kltDesc || '', stockLink, stockName, suggestion, backtestingStr, currentPriceChange, currentTradeStr, increaseStr);
+    const emailItem = createEmailItem(item as [string, number], kltDesc || '', stockLink, stockName, suggestion, backtestingStr, currentPriceChange, currentTradeStr, increaseStr + advancedFeaturesStr + ma55BreadBreakthrough);
     
     if (suggestion === ERSISuggestion.MUST_BUY || suggestion === ERSISuggestion.BUY) {
       buyItems.push(emailItem);
@@ -266,7 +472,7 @@ function processSingleStock({
       sellItems.push(emailItem);
     }
 
-    return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${suggestion} ${backtestingStr} ${currentTradeStr} ${increaseStr}`;
+    return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${suggestion} ${backtestingStr} ${currentTradeStr} ${increaseStr}${advancedFeaturesStr}`;
   }).filter((item: string | null) => !!item) as string[];
 
   return {

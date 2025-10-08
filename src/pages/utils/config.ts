@@ -15,6 +15,9 @@ import { IFutuStockInfo, IFutuApiResponse } from "../interface/futu";
 /** 数据库存储开关：控制是否将RSI数据保存到数据库，默认关闭以减少数据库负载 */
 export const ENABLE_DATABASE_STORAGE = process.env.ENABLE_DATABASE_STORAGE === 'true';
 
+/** 高级功能开关：控制是否启用MA55价格比较和MACD金叉检测等高级功能 */
+export const ENABLE_ADVANCED_FEATURES = true//process.env.ENABLE_ADVANCED_FEATURES === 'true';
+
 /** 批处理大小：每批次处理的股票数量，避免单次请求过多导致超时或被限制 */
 export const BATCH_SIZE = 20;
 

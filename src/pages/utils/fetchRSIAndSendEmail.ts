@@ -65,7 +65,7 @@ import { EasyStockLists, FutuStockLists } from "./stockList";
 import { BATCH_DELAY_RANGE, EReqType, PrePullDayConfig } from "./config";
 import { sortByStockName } from "./sort";
 import { batchFetchStockData, logRequestStatistics } from "./dataFetcher";
-import { processRSIData } from "./rsiProcessor";
+import { processRSIDataAsync } from "./rsiProcessor";
 import { sendRSIEmailNotification } from "./emailNotifier";
 import { RSIDatabaseSaver } from "./rsiDatabaseSaver";
 import { ENABLE_DATABASE_STORAGE } from "./config";
@@ -189,7 +189,7 @@ export const fetchRSIAndSendEmail = async ({
     logRequestStatistics(reqType, fetchResult, stockType.toString(), klt);
 
     // ================================= RSI数据处理 =================================
-    const processResult = processRSIData({
+    const processResult = await processRSIDataAsync({
       allResults: fetchResult.results,
       reqType,
       stockLists,
@@ -312,7 +312,7 @@ export const fetchRSIDataWithDetails = async ({
     logRequestStatistics(reqType, fetchResult, stockType.toString(), klt);
 
     // ================================= RSI数据处理 =================================
-    const processResult = processRSIData({
+    const processResult = await processRSIDataAsync({
       allResults: fetchResult.results,
       reqType,
       stockLists,

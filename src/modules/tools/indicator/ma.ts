@@ -47,27 +47,51 @@ export function CloseMA(data:Array<{
       )
     }    
 
-    let ma30:number|string = '-'
-    if(index >= 30){
-      ma30 = MA(
+    // let ma30:number|string = '-'
+    // if(index >= 30){
+    //   ma30 = MA(
+    //     data,
+    //     (v2:any)=>{
+    //       return v2.close
+    //     },
+    //     index,
+    //     30
+    //   )
+    // } 
+
+    // let ma60:number|string = '-'
+    // if(index >= 60){
+    //   ma60 = MA(
+    //     data,
+    //     (v2:any)=>{
+    //       return v2.close
+    //     },
+    //     index,
+    //     60
+    //   )
+    // } 
+
+    let ma55:number|string = '-'
+    if(index >= 55){
+      ma55 = MA(
         data,
         (v2:any)=>{
           return v2.close
         },
         index,
-        30
+        55
       )
     } 
 
-    let ma60:number|string = '-'
-    if(index >= 60){
-      ma60 = MA(
+    let ma233:number|string = '-'
+    if(index >= 233){
+      ma233 = MA(
         data,
         (v2:any)=>{
           return v2.close
         },
         index,
-        60
+        233
       )
     } 
 
@@ -76,8 +100,10 @@ export function CloseMA(data:Array<{
       ma5,
       ma10,
       ma20,
-      ma30,
-      ma60
+      // ma30,
+      // ma60
+      ma55,
+      ma233,
     ]
   })
 }
