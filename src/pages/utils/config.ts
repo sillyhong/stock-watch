@@ -92,6 +92,12 @@ export const RSIThresholds = {
       sell: 75,
       mustSell: 85 
     },
+    [EKLT['60M']]: { 
+      buy: 28,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
+    },
     [EKLT['DAY']]: { 
       buy: 28,
       mustBuy: 20,
@@ -118,7 +124,13 @@ export const RSIThresholds = {
       sell: 75,
       mustSell: 85 
     },
-    [EKLT['DAY']]: { 
+     [EKLT['60M']]: { 
+      buy: 28,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
+    },
+  [EKLT['DAY']]: { 
       buy: 20,
       mustBuy: 15,
       sell: 75,
@@ -139,6 +151,12 @@ export const RSIThresholds = {
       mustSell: 90
     },
     [EKLT['30M']]: { 
+      buy: 28,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
+    },
+    [EKLT['60M']]: { 
       buy: 28,
       mustBuy: 20,
       sell: 75,
@@ -168,18 +186,21 @@ export const PrePullDayConfig = {
         [EKLT['15M']]: 40,// 检查正确 至少 15条数据
         // [EKLT['DAY']]: 90,// 最新的几天准确，距离越长不准确
         [EKLT['30M']]: 40,
+        [EKLT['60M']]: 40,
         [EKLT['DAY']]: 180,// 最新的几天准确，距离越长不准确; 需要考虑筹码集中度，官方传入的是210
     },
     [EStockType.HK]: {
         [EKLT['5M']]: 7, // 检查正确
         [EKLT['15M']]: 14, // 检查正确
         [EKLT['30M']]: 40,
+        [EKLT['60M']]: 40,
         [EKLT['DAY']]: 90,// 不正确
     },
     [EStockType.US]: {
         [EKLT['5M']]: 7,
         [EKLT['15M']]: 14,
         [EKLT['30M']]: 40,
+        [EKLT['60M']]: 40,
         [EKLT['DAY']]: 90,
     },
 }
@@ -201,6 +222,7 @@ export const EFutuFetchUrl = {
   [EKLT["5M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
   [EKLT["15M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
   [EKLT["30M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
+  [EKLT["60M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
   [EKLT.DAY]: 'https://www.futunn.com/quote-api/quote-v2/get-kline', //选中“日K”, 查看日线 
 }
 
@@ -543,8 +565,8 @@ export const calculatePriceChangeData = (RSIData: IRSICalculationData, stockType
  * @returns 是否应该过滤掉此数据
  */
 export const shouldFilterByTime = (diffInMinutes: number, klt: EKLT, isBacktesting: boolean): boolean => {
-  // 短期K线数据过滤
-  if (klt === EKLT["15M"] || klt === EKLT["5M"]) {
+  // 短期K线数据过滤（5分钟、15分钟、30分钟）
+  if (klt === EKLT["15M"] || klt === EKLT["5M"] || klt === EKLT["30M"] || klt === EKLT["60M"]) {
     if (isBacktesting) {
       // 回测模式：保留近3天的数据
       return diffInMinutes > TIME_FILTER_THRESHOLDS.SHORT_TERM_MAX;
@@ -719,4 +741,11 @@ export const generateEmailTables = (buyList: IEmailListItem[], sellList: IEmailL
   LATEST_GOLDEN_CROSS = '最近金叉',
   FISRT_GOLDEN_DOWN = '首次死叉',
   LATEST_GOLDEN_DOWN = '最近死叉'
+ }
+
+  export enum EMA55BreadType {
+  FISRT_BREAK_THROUGH = '首次突破',
+  LATEST_BREAK_THROUGH = '最近突破',
+  FISRT_BREAK_DOWN = '首次跌破',
+  LATEST_BREAK_DOWN = '最近跌破'
  }

@@ -60,6 +60,7 @@ import {
   RSIThresholds,
   ENABLE_ADVANCED_FEATURES,
   EGlodCrossType,
+  EMA55BreadType,
 } from "./config";
 import { a_beijiaosuo_cn } from "../data/astock/beijiaosuo";
 import { backtestRSI } from "./backtrend";
@@ -438,7 +439,7 @@ function processSingleStockRSI({
     let suggestion = processRSISuggestion(rsiValue, rsiThresholds, stockCode, klt, isBacktesting);
     
     // 日线即使没有RSI命中信息也需要展示金叉死叉信息，其他情况没有RSI命中则去掉
-   if(klt !== EKLT.DAY) {
+   if(klt !== EKLT.DAY && klt !== EKLT['30M']) {
      if (!suggestion) {
       return null;
      }
@@ -458,7 +459,7 @@ function processSingleStockRSI({
 
     // 日线情况且没有suggestion,需要重新赋值
     if(klt === EKLT.DAY && !suggestion) {
-      if(macdGoldenCrossStr.includes(EGlodCrossType.FISRT_GOLDEN_CROSS)) {
+      if(macdGoldenCrossStr.includes(EGlodCrossType.FISRT_GOLDEN_CROSS) || ma55BreadBreakthrough.includes(EMA55BreadType.FISRT_BREAK_THROUGH)) {
         suggestion = ERSISuggestion.MUST_BUY
       }else if (macdGoldenCrossStr.includes(EGlodCrossType.LATEST_GOLDEN_CROSS)) {
         suggestion = ERSISuggestion.BUY

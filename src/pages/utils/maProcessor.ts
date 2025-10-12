@@ -1,4 +1,5 @@
 import dayjs, { Dayjs } from "dayjs";
+import { EMA55BreadType } from "./config";
 
 /**
  * 高级功能：检查当前价格是否大于等于MA55
@@ -102,10 +103,10 @@ interface IMA55BreakthroughParams {
     
     // 只有首次突破才标记
     if (isFirstBreakthrough && ma55BreakThrough) {
-      ma55BreadBreakthrough = '🚀首次突破';
+      ma55BreadBreakthrough = `🚀${EMA55BreadType.FISRT_BREAK_THROUGH}`;
       // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ⭐⭐⭐ ${stockName} 首次突破MA55: 价格${currentPrice.toFixed(2)} > MA55(${currentMa55Value.toFixed(2)}) ⭐⭐⭐`);
     } else if(ma55BreakThrough) {
-      ma55BreadBreakthrough = '🚀近期突破';
+      ma55BreadBreakthrough = `🚀${EMA55BreadType.LATEST_BREAK_THROUGH}`;
     }
   
     return { ma55BreakThrough, ma55BreadBreakthrough };
