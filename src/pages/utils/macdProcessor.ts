@@ -1,16 +1,17 @@
 import dayjs, { Dayjs } from "dayjs";
+import { EGlodCrossType } from "./config";
 
 /**
  * MACD趋势状态枚举
  */
 export enum MACDTrendState {
-  WEAK = '弱',                          // DEA下穿零轴后到低位金叉
-  MEDIUM_STRONG = '中偏强',              // 低位金叉后，DIF第一次上穿零轴
-  EXTREMELY_STRONG = '极强',             // DIF上穿零轴后，到DEA上穿零轴
   STRONG = '强',                        // DEA上穿零轴后，高位死叉
-  MEDIUM_WEAK = '中性偏弱',              // 高位死叉到DIF下穿零轴
+  EXTREMELY_STRONG = '极强',             // DIF上穿零轴后，到DEA上穿零轴
+  MEDIUM_STRONG = '偏强',              // 低位金叉后，DIF第一次上穿零轴(中偏强)
   EXTREMELY_WEAK = '极弱',               // DIF下穿零轴，到DEA下穿零轴
-  UNKNOWN = '未知'                      // 无法判断
+  WEAK = '弱',                          // DEA下穿零轴后到低位金叉
+  MEDIUM_WEAK = '偏弱',              // 高位死叉到DIF下穿零轴(中偏弱)
+  UNKNOWN = ''                      // 无法判断
 }
 
 /**
@@ -41,7 +42,7 @@ export interface IMACDGoldenCrossParams {
    */
   export interface IMACDGoldenCrossResult {
     macdGoldenCross: boolean;
-    advancedFeaturesStr: string;
+    macdGoldenCrossStr: string;
     trendState?: MACDTrendState;  // 趋势状态
     trendStateEmoji?: string;     // 趋势状态表情符号
   }
@@ -271,13 +272,13 @@ export interface IMACDGoldenCrossParams {
       case MACDTrendState.STRONG:
         return '🔥🔥';   // 强
       case MACDTrendState.MEDIUM_STRONG:
-        return '🔥';     // 中偏强
+        return '🔥';     // 偏强
       case MACDTrendState.EXTREMELY_WEAK:
         return '❄️❄️❄️';   // 极弱
       case MACDTrendState.WEAK:
         return '❄️❄️';     // 弱
       case MACDTrendState.MEDIUM_WEAK:
-        return '❄️';     // 中性偏弱
+        return '❄️';     // 偏弱
       default:
         return '❓';     // 未知
     }
@@ -292,7 +293,7 @@ export interface IMACDGoldenCrossParams {
     const { itemTime, macdData } = params;
     
     let macdGoldenCross = false;
-    let advancedFeaturesStr = '';
+    let macdGoldenCrossStr = '';
     let trendState: MACDTrendState = MACDTrendState.UNKNOWN;
     let trendStateEmoji = '';
   
@@ -305,7 +306,7 @@ export interface IMACDGoldenCrossParams {
     
     if (currentMacdIndex === -1) {
       // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [MACD检测] ${stockName} 未找到当前时间点的MACD数据`);
-      return { macdGoldenCross, advancedFeaturesStr };
+      return { macdGoldenCross, macdGoldenCrossStr };
     }
   
     const currentMacdItem = macdData[currentMacdIndex];
@@ -319,8 +320,8 @@ export interface IMACDGoldenCrossParams {
     
     // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [MACD检测] ${stockName} 金叉检测结果: ${macdGoldenCross ? '金叉' : '非金叉'} (DIFF ${macdGoldenCross ? '>=' : '<'} DEA)`);
     
-    // 回溯15个时间段判断趋势状态
-    const lookbackPeriods = Math.min(15, currentMacdIndex);
+    // 回溯7个时间段判断趋势状态（TODO: 设计算法找出将要金叉的情况，金叉只管3根线）
+    const lookbackPeriods = Math.min(7, currentMacdIndex);
     // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [MACD趋势] ${stockName} 开始趋势分析，回溯周期数:${lookbackPeriods}`);
     
     trendState = determineMACDTrendState(currentMacdIndex, macdData, lookbackPeriods);
@@ -330,17 +331,17 @@ export interface IMACDGoldenCrossParams {
     
     // 只有当前是金叉状态，才需要检查是否首次金叉
     if (!macdGoldenCross) {
-      advancedFeaturesStr = trendStateEmoji;
+      macdGoldenCrossStr = trendStateEmoji;
       
       return { 
         macdGoldenCross, 
-        advancedFeaturesStr,
+        macdGoldenCrossStr,
         trendState,
         trendStateEmoji
       };
     }
   
-    // 检查前15个时间段是否有金叉记录
+    // 检查前7个时间段是否有金叉记录
     let isFirstGoldenCross = true;
     
     // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [MACD检测] ${stockName} 开始回溯检查首次金叉`);
@@ -362,14 +363,14 @@ export interface IMACDGoldenCrossParams {
     
     // 构建高级功能字符串
     if (isFirstGoldenCross && macdGoldenCross) {
-      advancedFeaturesStr = ` 🚀首次金叉 ${trendStateEmoji}${trendState}`;
+      macdGoldenCrossStr = ` 🚀${EGlodCrossType.FISRT_GOLDEN_CROSS} ${trendStateEmoji}${trendState}`;
     } else if(macdGoldenCross){
-      advancedFeaturesStr = ` 🚀最近金叉 ${trendStateEmoji}${trendState}`;
+      macdGoldenCrossStr = ` 🚀${EGlodCrossType.LATEST_GOLDEN_CROSS} ${trendStateEmoji}${trendState}`;
     } 
   
     return { 
       macdGoldenCross, 
-      advancedFeaturesStr,
+      macdGoldenCrossStr,
       trendState,
       trendStateEmoji
     };

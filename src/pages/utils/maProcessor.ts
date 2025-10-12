@@ -102,10 +102,10 @@ interface IMA55BreakthroughParams {
     
     // 只有首次突破才标记
     if (isFirstBreakthrough && ma55BreakThrough) {
-      ma55BreadBreakthrough = '🚀突破均线';
+      ma55BreadBreakthrough = '🚀首次突破';
       // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ⭐⭐⭐ ${stockName} 首次突破MA55: 价格${currentPrice.toFixed(2)} > MA55(${currentMa55Value.toFixed(2)}) ⭐⭐⭐`);
     } else if(ma55BreakThrough) {
-      ma55BreadBreakthrough = '🚀均线上';
+      ma55BreadBreakthrough = '🚀近期突破';
     }
   
     return { ma55BreakThrough, ma55BreadBreakthrough };

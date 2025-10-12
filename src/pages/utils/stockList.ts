@@ -64,6 +64,11 @@ export const EasyStockLists = {
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
+  [EKLT["30M"]] : {
+    [EStockType.A]: [ ...AStockList, ...a_fengdian, ...a_bantaoti, ...a_beijiaosuo],
+    [EStockType.HK]: HKStockList,
+    [EStockType.US]: USStockList,
+  },
   [EKLT["DAY"]] : {
     [EStockType.A]: [...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo, ...a_fengdian],
     [EStockType.HK]: HKStockList,
@@ -79,6 +84,11 @@ export const FutuStockLists = {
   },
   [EKLT["15M"]] : {
     // [EStockType.A]: [ ...AStockList, ...a_xiaofeidianzi_futu_token, ...a_bantaoti_futu_token, ...a_beijiaosuo],
+    [EStockType.A]: [ ...AStockList_Futu_Token,  ...a_bantaoti_futu_token, ...a_xiaofeidianzi_futu_token ],
+    [EStockType.HK]: [],//HKStockList,
+    [EStockType.US]: [],//USStockList,
+  },
+   [EKLT["30M"]] : {
     [EStockType.A]: [ ...AStockList_Futu_Token,  ...a_bantaoti_futu_token, ...a_xiaofeidianzi_futu_token ],
     [EStockType.HK]: [],//HKStockList,
     [EStockType.US]: [],//USStockList,

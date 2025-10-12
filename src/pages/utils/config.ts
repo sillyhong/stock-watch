@@ -86,6 +86,12 @@ export const RSIThresholds = {
       sell: 75,
       mustSell: 85 
     },
+    [EKLT['30M']]: { 
+      buy: 28,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
+    },
     [EKLT['DAY']]: { 
       buy: 28,
       mustBuy: 20,
@@ -106,6 +112,12 @@ export const RSIThresholds = {
       sell: 80,
       mustSell: 90
     },
+    [EKLT['30M']]: { 
+      buy: 28,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
+    },
     [EKLT['DAY']]: { 
       buy: 20,
       mustBuy: 15,
@@ -125,6 +137,12 @@ export const RSIThresholds = {
       mustBuy: 15,
       sell: 80,
       mustSell: 90
+    },
+    [EKLT['30M']]: { 
+      buy: 28,
+      mustBuy: 20,
+      sell: 75,
+      mustSell: 85 
     },
     [EKLT['DAY']]: { 
       buy: 20,
@@ -149,17 +167,20 @@ export const PrePullDayConfig = {
         [EKLT['5M']]: 7,
         [EKLT['15M']]: 40,// 检查正确 至少 15条数据
         // [EKLT['DAY']]: 90,// 最新的几天准确，距离越长不准确
+        [EKLT['30M']]: 40,
         [EKLT['DAY']]: 180,// 最新的几天准确，距离越长不准确; 需要考虑筹码集中度，官方传入的是210
     },
     [EStockType.HK]: {
         [EKLT['5M']]: 7, // 检查正确
         [EKLT['15M']]: 14, // 检查正确
+        [EKLT['30M']]: 40,
         [EKLT['DAY']]: 90,// 不正确
     },
     [EStockType.US]: {
         [EKLT['5M']]: 7,
         [EKLT['15M']]: 14,
-        [EKLT['DAY']]: 30,
+        [EKLT['30M']]: 40,
+        [EKLT['DAY']]: 90,
     },
 }
 
@@ -179,6 +200,7 @@ export enum EReqType  {
 export const EFutuFetchUrl = {
   [EKLT["5M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
   [EKLT["15M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
+  [EKLT["30M"]]: 'https://www.futunn.com/quote-api/quote-v2/get-quote-minute', // 选中“5日”，查看分时线
   [EKLT.DAY]: 'https://www.futunn.com/quote-api/quote-v2/get-kline', //选中“日K”, 查看日线 
 }
 
@@ -690,3 +712,11 @@ export const generateEmailTables = (buyList: IEmailListItem[], sellList: IEmailL
  export const getPriceChangeMatch = (rsiDataStr: string) =>  rsiDataStr.match(/\[([^%\]]*%?)\]/)
  export const getSuggestionMatch = (rsiDataStr: string) =>  rsiDataStr.match(/➜\s*([^➜]*?)(?:\s+today:|$)/)
  export const getBacktestMatch = (rsiDataStr: string) =>  rsiDataStr.match(/today:\s*([^next]+?)(?:\s+next:|$)/)
+
+
+ export enum EGlodCrossType {
+  FISRT_GOLDEN_CROSS= '首次金叉',
+  LATEST_GOLDEN_CROSS = '最近金叉',
+  FISRT_GOLDEN_DOWN = '首次死叉',
+  LATEST_GOLDEN_DOWN = '最近死叉'
+ }

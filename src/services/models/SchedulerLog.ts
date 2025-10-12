@@ -5,6 +5,7 @@ import sequelize from '../lib/database';
 export enum EJobType {
   DAY_RSI_WATCH = 'DAY_RSI_WATCH',
   BACKTREND_15RSI = 'BACKTREND_15RSI',
+  BACKTREND_30RSI = 'BACKTREND_30RSI',
 }
 
 // 市场类型枚举

@@ -59,6 +59,7 @@ import {
   shouldFilterByTime,
   RSIThresholds,
   ENABLE_ADVANCED_FEATURES,
+  EGlodCrossType,
 } from "./config";
 import { a_beijiaosuo_cn } from "../data/astock/beijiaosuo";
 import { backtestRSI } from "./backtrend";
@@ -233,7 +234,7 @@ interface IAdvancedFeaturesResult {
   ma55BreakThrough: boolean;
   macdGoldenCross: boolean;
   ma55BreadBreakthrough: string;
-  advancedFeaturesStr: string;
+  macdGoldenCrossStr: string;
 }
 
 
@@ -266,17 +267,17 @@ function processAdvancedFeatures({
   let ma55BreakThrough = false;
   let macdGoldenCross = false;
   let ma55BreadBreakthrough = '';
-  let advancedFeaturesStr = '';
+  let macdGoldenCrossStr = '';
 
   // 如果未开启高级功能或数据不完整，直接返回
   if (!ENABLE_ADVANCED_FEATURES) {
     // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] 高级功能未开启 ENABLE_ADVANCED_FEATURES=${ENABLE_ADVANCED_FEATURES}`);
-    return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, advancedFeaturesStr };
+    return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, macdGoldenCrossStr };
   }
   
   if (!sourceItem) {
     // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] [高级功能] ${stockName} sourceItem为空，跳过处理`);
-    return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, advancedFeaturesStr };
+    return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, macdGoldenCrossStr };
   }
 
   const currentPrice = Number(sourceItem.close);
@@ -303,10 +304,10 @@ function processAdvancedFeatures({
       macdData
     });
     macdGoldenCross = macdResult.macdGoldenCross;
-    advancedFeaturesStr = macdResult.advancedFeaturesStr;
+    macdGoldenCrossStr = macdResult.macdGoldenCrossStr;
   } 
 
-  return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, advancedFeaturesStr };
+  return { ma55BreakThrough, macdGoldenCross, ma55BreadBreakthrough, macdGoldenCrossStr };
 }
 
 /**
@@ -434,11 +435,14 @@ function processSingleStockRSI({
     }
 
     const rsiValue = Number(item?.[1]);
-    const suggestion = processRSISuggestion(rsiValue, rsiThresholds, stockCode, klt, isBacktesting);
+    let suggestion = processRSISuggestion(rsiValue, rsiThresholds, stockCode, klt, isBacktesting);
     
-    if (!suggestion) {
+    // 日线即使没有RSI命中信息也需要展示金叉死叉信息，其他情况没有RSI命中则去掉
+   if(klt !== EKLT.DAY) {
+     if (!suggestion) {
       return null;
-    }
+     }
+   }
 
     // ================================= 高级功能：MA55过滤和MACD金叉检测 =================================
     const advancedFeatures = processAdvancedFeatures({
@@ -450,7 +454,19 @@ function processSingleStockRSI({
       RSIData
     });
     
-    const { ma55BreadBreakthrough, advancedFeaturesStr } = advancedFeatures;
+    const { ma55BreadBreakthrough, macdGoldenCrossStr } = advancedFeatures;
+
+    // 日线情况且没有suggestion,需要重新赋值
+    if(klt === EKLT.DAY && !suggestion) {
+      if(macdGoldenCrossStr.includes(EGlodCrossType.FISRT_GOLDEN_CROSS)) {
+        suggestion = ERSISuggestion.MUST_BUY
+      }else if (macdGoldenCrossStr.includes(EGlodCrossType.LATEST_GOLDEN_CROSS)) {
+        suggestion = ERSISuggestion.BUY
+      }
+    }
+
+    // 经过RSI、MACD检查，还是没有 suggestion
+    if(!suggestion)return null
 
     // 生成显示字符串和邮件项
     const increaseStr = isChipIncrease ? '💹' : '';
@@ -464,7 +480,7 @@ function processSingleStockRSI({
     }
 
     // 添加到对应的建议列表
-    const emailItem = createEmailItem(item as [string, number], kltDesc || '', stockLink, stockName, suggestion, backtestingStr, currentPriceChange, currentTradeStr, increaseStr + advancedFeaturesStr + ma55BreadBreakthrough);
+    const emailItem = createEmailItem(item as [string, number], kltDesc || '', stockLink, stockName, suggestion, backtestingStr, currentPriceChange, currentTradeStr, increaseStr + macdGoldenCrossStr + ma55BreadBreakthrough);
     
     if (suggestion === ERSISuggestion.MUST_BUY || suggestion === ERSISuggestion.BUY) {
       buyItems.push(emailItem);
@@ -472,7 +488,7 @@ function processSingleStockRSI({
       sellItems.push(emailItem);
     }
 
-    return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${suggestion} ${backtestingStr} ${currentTradeStr} ${increaseStr}${advancedFeaturesStr}`;
+    return `[${item[0]}] [${kltDesc}] ${stockName} ${item[1]} [${currentPriceChange}] ➜ ${suggestion} ${backtestingStr} ${currentTradeStr} ${increaseStr}${macdGoldenCrossStr}`;
   }).filter((item: string | null) => !!item) as string[];
 
   return {
