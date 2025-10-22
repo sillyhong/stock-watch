@@ -17,9 +17,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let rsiData: any
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('05 */30 9-16 * * 1-5', ()=>{
+      HTask = cron.schedule('05 */30 10-16 * * 1-5', ()=>{
         fetchHKRSI({
-          klt: EKLT['15M'],
+          klt: EKLT['30M'],
           currentDate: dayjs()
         })
       }, {
@@ -28,18 +28,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    if(isEmpty(HMorningTask)) {
-      HMorningTask = cron.schedule('05 25 9 * * 1-5', ()=>{
-        fetchHKRSI({
-          klt: EKLT['15M'],
-          currentDate: dayjs()
-        })
-      }, {
-        timezone: "Asia/Shanghai",
-        scheduled: true
-      }); 
-    }
-    // rsiData = await fetchHKRSI({ klt: EKLT['15M'], sendEmail: false})
+    // if(isEmpty(HMorningTask)) {
+    //   HMorningTask = cron.schedule('05 25 9 * * 1-5', ()=>{
+    //     fetchHKRSI({
+    //       klt: EKLT['30M'],
+    //       currentDate: dayjs()
+    //     })
+    //   }, {
+    //     timezone: "Asia/Shanghai",
+    //     scheduled: true
+    //   }); 
+    // }
+    // rsiData = await fetchHKRSI({ klt: EKLT['30M'], sendEmail: false})
 
     res.status(200).json({ message: 'Cron job set to check HK RSI every 30 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {

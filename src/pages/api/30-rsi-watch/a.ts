@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === 'GET') {
     console.log('isEmpty(ATask)',isEmpty(ATask))
     if (isEmpty(ATask)) {
-      ATask = cron.schedule('*/30 9-15 * * 1-5', async ()=>{
+      ATask = cron.schedule('*/30 10-15 * * 1-5', async ()=>{
         try {
           await executeRSIWithFallback(EKLT['30M'], dayjs());
         } catch (error) {

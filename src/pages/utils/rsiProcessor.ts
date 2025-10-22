@@ -439,7 +439,7 @@ function processSingleStockRSI({
     let suggestion = processRSISuggestion(rsiValue, rsiThresholds, stockCode, klt, isBacktesting);
     
     // 日线即使没有RSI命中信息也需要展示金叉死叉信息，其他情况没有RSI命中则去掉
-   if(klt !== EKLT.DAY && klt !== EKLT['30M']) {
+   if(klt !== EKLT.DAY && klt !== EKLT['30M'] && klt !== EKLT['60M']) {
      if (!suggestion) {
       return null;
      }
