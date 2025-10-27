@@ -65,12 +65,12 @@ export const EasyStockLists = {
     [EStockType.US]: USStockList,
   },
   [EKLT["30M"]] : {
-    [EStockType.A]: [ ...AStockList, ...a_fengdian, ...a_bantaoti, ...a_beijiaosuo, ...a_xiaofeidianzi],
+    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_xiaofeidianzi],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
   [EKLT["60M"]] : {
-    [EStockType.A]: [ ...AStockList, ...a_fengdian, ...a_bantaoti, ...a_beijiaosuo],
+    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_beijiaosuo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
