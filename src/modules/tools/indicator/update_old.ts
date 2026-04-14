@@ -206,15 +206,451 @@ export function GetConvert(type, bodys2, options = {}):any[][] {
     }
     return data;
 }
-function Convert(bodys, options = {}) {
-    if ((bodys == null) || (bodys.length == 0)) {
-        console.log("历史行情数据不能为空", options);
-    }
-    const entities = bodys;
-    const len = bodys.length;
+// function Convert(bodys, options = {}) {
+//     if ((bodys == null) || (bodys.length == 0)) {
+//         console.log("历史行情数据不能为空", options);
+//     }
+//     const entities = bodys;
+//     const len = bodys.length;
 
+//     let RSI_UP, RSI_DN;
+//     for (let i = 0; i < len; i++) {
+//         if (i > 0) {
+//             RSI_UP = Math.max(entities[i].close - entities[i - 1].close, 0);
+//             RSI_DN = Math.abs(entities[i].close - entities[i - 1].close);
+//             if (i == 1) {
+//                 entities[i].RSI_UP_A = RSI_UP;
+//                 entities[i].RSI_DN_A = RSI_DN;
+//                 entities[i].RSI_UP_B = RSI_UP;
+//                 entities[i].RSI_DN_B = RSI_DN;
+//                 entities[i].RSI_UP_C = RSI_UP;
+//                 entities[i].RSI_DN_C = RSI_DN;
+//             }
+//             else {
+//                 entities[i].RSI_UP_A = RSI_UP + entities[i - 1].RSI_UP_A * (6 - 1) / 6;
+//                 entities[i].RSI_DN_A = RSI_DN + entities[i - 1].RSI_DN_A * (6 - 1) / 6;
+//                 entities[i].RSI_UP_B = RSI_UP + entities[i - 1].RSI_UP_B * (12 - 1) / 12;
+//                 entities[i].RSI_DN_B = RSI_DN + entities[i - 1].RSI_DN_B * (12 - 1) / 12;
+//                 entities[i].RSI_UP_C = RSI_UP + entities[i - 1].RSI_UP_C * (24 - 1) / 24;
+//                 entities[i].RSI_DN_C = RSI_DN + entities[i - 1].RSI_DN_C * (24 - 1) / 24;
+//             }
+//         }
+//     }
+//     return entities;
+// }
+
+let SAR_BULL = true;
+let SAR_FIRSTDAY = true;
+let SAR_AF = 0.02;
+let SAR_LOW = 0;
+let SAR_HIGH = 0;
+function Convert(bodys) {
+    if ((bodys == null) || (bodys.Count == 0)) {
+        console.log("历史行情数据不能为空");
+    }
+    const entities = [];
+    const len = bodys.length;
+    for (var i = 0; i < len; i++) {
+        const bodyItem = bodys[i]
+
+        const cus = GetEntity();
+        cus.time = bodyItem.date;
+        cus.date = bodyItem.date;
+        cus.open = parseFloat(bodyItem.open);
+        cus.close = parseFloat(bodyItem.close);
+        cus.high = parseFloat(bodyItem.high);
+        cus.low = parseFloat(bodyItem.low);
+        cus.volume = Number(bodyItem.volume);
+        entities.push(cus);
+
+
+        // var line = bodys[i]?.split(",");
+
+        // var cus = GetEntity();
+        // cus.time = line[0];
+        // cus.open = parseFloat(line[1]);
+        // cus.close = parseFloat(line[2]);
+        // cus.high = parseFloat(line[3]);
+        // cus.low = parseFloat(line[4]);
+        // cus.volume = Number(line[5]);
+        // entities.push(cus);
+    }
+
+
+    let sum, v5sum, v10sum;
+    let LC, AA, BB, CC, DD, R, X;
+    let BOLL_MD;
+    let CCI_MA, CCI_TYP_MA;
+    let CR_AX_SUM, CR_BX_SUM;
+    let HD, LD, DMI_TR_SUM, DMI_DMP_SUM, DMI_DMM_SUM, DMI_ADX_SUM, DMI_ADXR_SUM;
+    let LLV, HHV;
+    let OBV_SUM;
+    let ROC_N;
     let RSI_UP, RSI_DN;
-    for (let i = 0; i < len; i++) {
+    let TH, TL, TQ;
+    const SAR_BULL = true;
+    let SAR_FIRSTDAY = true;
+    let SAR_AF = 0.02;
+    let SAR_low = 0;
+    let SAR_high = 0;
+    let VR_SUM;
+    for (var i = 0; i < len; i++) {
+
+        //EXPMA
+        const pre_expma12 = i == 0 ? entities[i].close : entities[i - 1].expma12
+        entities[i].expma12 = [entities[i].close*2+pre_expma12*(12-1)]/(12+1)
+
+        const pre_expma50 = i == 0 ? entities[i].close : entities[i - 1].expma50
+        entities[i].expma50 = [entities[i].close*2+pre_expma50*(50-1)]/(50+1)    
+
+        if (i >= 4) {
+            sum = 0;
+            v5sum = 0;
+            for (var j = 0; j < 5; j++) {
+                sum += entities[i - j].close;
+                v5sum += entities[i - j].volume;
+            }
+            entities[i].Average5 = sum / 5;
+            entities[i].volume5 = v5sum / 5;
+        }
+        if (i >= 9) {
+            sum = 0;
+            v5sum = 0;
+            for (var j = 0; j < 10; j++) {
+                sum += entities[i - j].close;
+                v5sum += entities[i - j].volume;
+            }
+            entities[i].Average10 = sum / 10;
+            entities[i].volume10 = v5sum / 10;
+        }
+        if (i >= 19) {
+            sum = 0;
+            for (var j = 0; j < 20; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average20 = sum / 20;
+        }
+        if (i >= 29) {
+            sum = 0;
+            for (var j = 0; j < 30; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average30 = sum / 30;
+        }
+        if (i >= 2) {
+            sum = 0;
+            for (var j = 0; j < 3; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average3 = sum / 3;
+        }
+        if (i >= 5) {
+            sum = 0;
+            for (var j = 0; j < 6; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average6 = sum / 6;
+        }
+        if (i >= 11) {
+            sum = 0;
+            for (var j = 0; j < 12; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average12 = sum / 12;
+        }
+        if (i >= 23) {
+            sum = 0;
+            for (var j = 0; j < 24; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average24 = sum / 24;
+        }
+        if (i >= 49) {
+            sum = 0;
+            for (var j = 0; j < 50; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average50 = sum / 50;
+        }
+        if (i >= 59) {
+            sum = 0;
+            for (var j = 0; j < 60; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].Average60 = sum / 60;
+        }
+
+        if (i >= 1) {
+            LC = entities[i - 1].close;
+            AA = Math.abs(entities[i].high - LC);
+            BB = Math.abs(entities[i].low - LC);
+            CC = Math.abs(entities[i].high - entities[i - 1].low);
+            DD = Math.abs(LC - entities[i - 1].open);
+            if ((AA > BB) && (AA > CC)) {
+                R = AA + BB / 2 + DD / 4;
+            }
+            else if ((BB > CC) && (BB > AA)) {
+                R = BB + AA / 2 + DD / 4;
+            }
+            else {
+                R = CC + DD / 4;
+            }
+            X = entities[i].close + (entities[i].close - entities[i].open) / 2 - entities[i - 1].open;
+            if (R != 0) {
+                entities[i].ASI = entities[i - 1].ASI + 16 * X / R * Math.max(AA, BB);
+            }
+        }
+
+        if (i >= 5) {
+            sum = 0;
+            for (var j = 0; j < 6; j++) {
+                sum += entities[i - j].close;
+            }
+            if (sum != 0) {
+                entities[i].BIAS_A = (entities[i].close / (sum / 6) - 1) * 100;
+            }
+        }
+        if (i >= 11) {
+            sum = 0;
+            for (var j = 0; j < 12; j++) {
+                sum += entities[i - j].close;
+            }
+            if (sum != 0) {
+                entities[i].BIAS_B = (entities[i].close / (sum / 12) - 1) * 100;
+            }
+        }
+        if (i >= 23) {
+            sum = 0;
+            for (var j = 0; j < 24; j++) {
+                sum += entities[i - j].close;
+            }
+            if (sum != 0) {
+                entities[i].BIAS_C = (entities[i].close / (sum / 24) - 1) * 100;
+            }
+        }
+
+        if (i >= 19) {
+            sum = 0;
+            for (var j = 0; j < 20; j++) {
+                sum += entities[i - j].close;
+            }
+            entities[i].BOLL = sum / 20;
+            sum = 0;
+            for (var j = 0; j < 20; j++) {
+                sum += (entities[i - j].close - entities[i].BOLL) * (entities[i - j].close - entities[i].BOLL);
+            }
+            BOLL_MD = parseFloat(Math.sqrt(sum / 20));
+            entities[i].BOLL_UPPER = entities[i].BOLL + BOLL_MD * 2;
+            entities[i].BOLL_LOWER = entities[i].BOLL - BOLL_MD * 2;
+        }
+
+        entities[i].CCI_TYP = (entities[i].high + entities[i].low + entities[i].close) / 3;
+        if (i >= 13) {
+            sum = 0;
+            for (var j = 0; j < 14; j++) {
+                sum += entities[i - j].close;
+            }
+            CCI_MA = sum / 14;
+            sum = 0;
+            for (var j = 0; j < 14; j++) {
+                sum += entities[i - j].CCI_TYP;
+            }
+            CCI_TYP_MA = sum / 14;
+            sum = 0;
+            for (var j = 0; j < 14; j++) {
+                sum += Math.abs(entities[i - j].CCI_TYP - CCI_TYP_MA);
+            }
+            if (sum != 0) {
+                entities[i].CCI = (entities[i].CCI_TYP - CCI_TYP_MA) / (0.015 * (sum / 14));
+            }
+        }
+
+        entities[i].CR_MID = (entities[i].high + entities[i].low) / 2;
+        if (i == 0) {
+            entities[i].CR = 100;
+            entities[i].CR_AX = Math.max(entities[i].high - entities[i].CR_MID, 0);
+            entities[i].CR_BX = Math.max(entities[i].CR_MID - entities[i].low, 0);
+        }
+        else {
+            entities[i].CR_AX = Math.max(entities[i].high - entities[i - 1].CR_MID, 0);
+            entities[i].CR_BX = Math.max(entities[i - 1].CR_MID - entities[i].low, 0);
+            CR_AX_SUM = CR_BX_SUM = 0;
+            for (var j = 0; j < 26 && j < i + 1; j++) {
+                CR_AX_SUM += entities[i - j].CR_AX;
+                CR_BX_SUM += entities[i - j].CR_BX;
+            }
+            if (CR_BX_SUM != 0) {
+                entities[i].CR = CR_AX_SUM / CR_BX_SUM * 100;
+            }
+            if (i >= 9) {
+                sum = 0;
+                for (var j = 0; j < 10; j++) {
+                    sum += entities[i - j].CR;
+                }
+                if (i + 5 < entities.Length) {
+                    entities[i + 5].CR_A = sum / 10;
+                }
+            }
+            if (i >= 19) {
+                sum = 0;
+                for (var j = 0; j < 20; j++) {
+                    sum += entities[i - j].CR;
+                }
+                if (i + 9 < entities.Length) {
+                    entities[i + 9].CR_B = sum / 20;
+                }
+            }
+            if (i >= 39) {
+                sum = 0;
+                for (var j = 0; j < 40; j++) {
+                    sum += entities[i - j].CR;
+                }
+                if (i + 17 < entities.Length) {
+                    entities[i + 17].CR_C = sum / 40;
+                }
+            }
+        }
+
+        if (i == 0) {
+            entities[i].DMI_TR = Math.max(Math.max(entities[i].high - entities[i].low, Math.abs(entities[i].high - entities[i].close)), Math.abs(entities[i].close - entities[i].low));
+            HD = 0;
+            LD = 0;
+        }
+        else {
+            entities[i].DMI_TR = Math.max(Math.max(entities[i].high - entities[i].low, Math.abs(entities[i].high - entities[i - 1].close)), Math.abs(entities[i - 1].close - entities[i].low));
+            HD = entities[i].high - entities[i - 1].high;
+            LD = entities[i - 1].low - entities[i].low;
+        }
+        if ((HD > 0) && (HD > LD)) {
+            entities[i].DMI_DMP = HD;
+        }
+        else {
+            entities[i].DMI_DMP = 0;
+        }
+        if ((LD > 0) && (LD > HD)) {
+            entities[i].DMI_DMM = LD;
+        }
+        else {
+            entities[i].DMI_DMM = 0;
+        }
+        if (i >= 13) {
+            if (i == 13) {
+                DMI_TR_SUM = DMI_DMP_SUM = DMI_DMM_SUM = 0;
+                for (var j = 0; j < 14; j++) {
+                    DMI_TR_SUM += entities[i - j].DMI_TR;
+                    DMI_DMP_SUM += entities[i - j].DMI_DMP;
+                    DMI_DMM_SUM += entities[i - j].DMI_DMM;
+                }
+                entities[i].DMI_EXPMEMA_TR = DMI_TR_SUM / 14;
+                entities[i].DMI_EXPMEMA_DMP = DMI_DMP_SUM / 14;
+                entities[i].DMI_EXPMEMA_DMM = DMI_DMM_SUM / 14;
+            }
+            else {
+                entities[i].DMI_EXPMEMA_TR = (entities[i].DMI_TR * 2 + 13 * entities[i - 1].DMI_EXPMEMA_TR) / 15;
+                entities[i].DMI_EXPMEMA_DMP = (entities[i].DMI_DMP * 2 + 13 * entities[i - 1].DMI_EXPMEMA_DMP) / 15;
+                entities[i].DMI_EXPMEMA_DMM = (entities[i].DMI_DMM * 2 + 13 * entities[i - 1].DMI_EXPMEMA_DMM) / 15;
+            }
+            if (entities[i].DMI_EXPMEMA_TR != 0) {
+                entities[i].DMI_PDI = entities[i].DMI_EXPMEMA_DMP * 100 / entities[i].DMI_EXPMEMA_TR;
+                entities[i].DMI_MDI = entities[i].DMI_EXPMEMA_DMM * 100 / entities[i].DMI_EXPMEMA_TR;
+                if (entities[i].DMI_PDI + entities[i].DMI_MDI != 0) {
+                    entities[i].DMI_MPDI = Math.abs(entities[i].DMI_MDI - entities[i].DMI_PDI) / (entities[i].DMI_MDI + entities[i].DMI_PDI) * 100;
+                }
+            }
+        }
+        if (i >= 18) {
+            if (i == 18) {
+                DMI_ADX_SUM = 0;
+                for (var j = 0; j < 6; j++) {
+                    DMI_ADX_SUM += entities[i - j].DMI_MPDI;
+                }
+                entities[i].DMI_ADX = DMI_ADX_SUM / 6;
+            }
+            else {
+                entities[i].DMI_ADX = (entities[i].DMI_MPDI * 2 + 5 * entities[i - 1].DMI_ADX) / 7;
+            }
+        }
+        if (i >= 23) {
+            if (i == 23) {
+                DMI_ADXR_SUM = 0;
+                for (var j = 0; j < 6; j++) {
+                    DMI_ADXR_SUM += entities[i - j].DMI_ADX;
+                }
+                entities[i].DMI_ADXR = DMI_ADXR_SUM / 6;
+            }
+            else {
+                entities[i].DMI_ADXR = (entities[i].DMI_ADX * 2 + 5 * entities[i - 1].DMI_ADXR) / 7;
+            }
+        }
+
+        LLV = entities[i].low;
+        HHV = entities[i].high;
+        for (var j = 0; j < 9 && j < i + 1; j++) {
+            if (HHV < entities[i - j].high) {
+                HHV = entities[i - j].high;
+            }
+            if (LLV > entities[i - j].low) {
+                LLV = entities[i - j].low;
+            }
+        }
+        if (HHV != LLV) {
+            entities[i].KDJ_RSV = (entities[i].close - LLV) / (HHV - LLV) * 100;
+        }
+        if (i == 0) {
+            entities[i].KDJ_K = entities[i].KDJ_RSV;
+            entities[i].KDJ_D = entities[i].KDJ_RSV;
+            entities[i].KDJ_J = entities[i].KDJ_RSV;
+        }
+        else {
+            entities[i].KDJ_K = (entities[i].KDJ_RSV / 3) + ((entities[i - 1].KDJ_K * 2) / 3);
+            entities[i].KDJ_D = (entities[i].KDJ_K / 3) + ((entities[i - 1].KDJ_D * 2) / 3);
+            entities[i].KDJ_J = (entities[i].KDJ_K * 3) - (entities[i].KDJ_D * 2);
+        }
+
+        if (i == 0) {
+            entities[i].MACD_AX = entities[i].close;
+            entities[i].MACD_BX = entities[i].close;
+            entities[i].MACD_DIF = 0;
+            entities[i].MACD_DEA = 0;
+        }
+        else {
+            entities[i].MACD_AX = (2 * entities[i].close + 11 * entities[i - 1].MACD_AX) / 13;
+            entities[i].MACD_BX = (2 * entities[i].close + 25 * entities[i - 1].MACD_BX) / 27;
+            entities[i].MACD_DIF = entities[i].MACD_AX - entities[i].MACD_BX;
+            entities[i].MACD_DEA = (2 * entities[i].MACD_DIF + 8 * entities[i - 1].MACD_DEA) / 10;
+        }
+
+        if (i > 0) {
+            if (entities[i].close > entities[i - 1].close) {
+                entities[i].OBV = entities[i - 1].OBV + entities[i].volume;
+            }
+            else if (entities[i].close < entities[i - 1].close) {
+                entities[i].OBV = entities[i - 1].OBV - entities[i].volume;
+            }
+            else {
+                entities[i].OBV = entities[i - 1].OBV;
+            }
+            if (i >= 29) {
+                OBV_SUM = 0;
+                for (var j = 0; j < 30; j++) {
+                    OBV_SUM += entities[i - j].OBV;
+                }
+                entities[i].OBV_MA = OBV_SUM / 30;
+            }
+        }
+
+        ROC_N = Math.min(11, i);
+        if (entities[i - ROC_N].close != 0) {
+            entities[i].ROC = 100 * (entities[i].close / entities[i - ROC_N].close - 1);
+        }
+        if (i >= 5) {
+            sum = 0;
+            for (var j = 0; j < 6; j++) {
+                sum += entities[i - j].ROC;
+            }
+            entities[i].ROC_MA = sum / 6;
+        }
+
         if (i > 0) {
             RSI_UP = Math.max(entities[i].close - entities[i - 1].close, 0);
             RSI_DN = Math.abs(entities[i].close - entities[i - 1].close);
@@ -235,6 +671,472 @@ function Convert(bodys, options = {}) {
                 entities[i].RSI_DN_C = RSI_DN + entities[i - 1].RSI_DN_C * (24 - 1) / 24;
             }
         }
+
+        if (i == 3) {
+            if (SAR_FIRSTDAY) {
+                if (SAR_BULL) {
+                    SAR_high = entities[i].high;
+                    for (var j = 0; j < 4; j++) {
+                        if (SAR_high < entities[i - j].high) {
+                            SAR_high = entities[i - j].high;
+                        }
+                    }
+                    SAR_low = entities[i].low;
+                    for (var j = 0; j < 4; j++) {
+                        if (SAR_low > entities[i - j].low) {
+                            SAR_low = entities[i - j].low;
+                        }
+                    }
+                    entities[i].SAR = SAR_low;
+                    entities[i].SAR_RED = true;
+                    SAR_AF = 0.02;
+                }
+                else {
+                    SAR_high = entities[i].high;
+                    for (var j = 0; j < 4; j++) {
+                        if (SAR_high < entities[i - j].high) {
+                            SAR_high = entities[i - j].high;
+                        }
+                    }
+                    SAR_low = entities[i].low;
+                    for (var j = 0; j < 4; j++) {
+                        if (SAR_low > entities[i - j].low) {
+                            SAR_low = entities[i - j].low;
+                        }
+                    }
+                    entities[i].SAR = SAR_high;
+                    entities[i].SAR_RED = false;
+                    SAR_AF = 0.02;
+                }
+                SAR_FIRSTDAY = false;
+            }
+        }
+        else if (i > 3) {
+            sar(i, entities);
+        }
+
+        TH = TL = TQ = 0;
+        for (var j = 0; j < 26 && j < i + 1; j++) {
+            if (i >= j + 1) {
+                if (entities[i - j].close > entities[i - j - 1].close) {
+                    TH += entities[i - j].volume;
+                }
+                else if (entities[i - j].close < entities[i - j - 1].close) {
+                    TL += entities[i - j].volume;
+                }
+                else {
+                    TQ += entities[i - j].volume;
+                }
+            }
+            else {
+                TH += entities[i - j].volume / 3;
+                TL += entities[i - j].volume / 3;
+                TQ += entities[i - j].volume / 3;
+            }
+        }
+        if (TL * 2 + TQ != 0) {
+            entities[i].VR = 100 * (TH * 2 + TQ) / (TL * 2 + TQ);
+        }
+        if (i >= 5) {
+            VR_SUM = 0;
+            for (var j = 0; j < 6; j++) {
+                VR_SUM += entities[i - j].VR;
+            }
+            entities[i].VR_MA = VR_SUM / 6;
+        }
+
+        LLV = entities[i].low;
+        HHV = entities[i].high;
+        for (var j = 0; j < 10 && j < i + 1; j++) {
+            if (HHV < entities[i - j].high) {
+                HHV = entities[i - j].high;
+            }
+            if (LLV > entities[i - j].low) {
+                LLV = entities[i - j].low;
+            }
+        }
+        if (HHV != LLV) {
+            entities[i].WR_A = 100 * (HHV - entities[i].close) / (HHV - LLV);
+        }
+        LLV = entities[i].low;
+        HHV = entities[i].high;
+        for (var j = 0; j < 6 && j < i + 1; j++) {
+            if (HHV < entities[i - j].high) {
+                HHV = entities[i - j].high;
+            }
+            if (LLV > entities[i - j].low) {
+                LLV = entities[i - j].low;
+            }
+        }
+        if (HHV != LLV) {
+            entities[i].WR_B = 100 * (HHV - entities[i].close) / (HHV - LLV);
+        }
+
+        if (i >= 23) {
+            entities[i].BBI = (entities[i].Average3 + entities[i].Average6 + entities[i].Average12 + entities[i].Average24) / 4;
+        }
+
     }
     return entities;
+}
+function sar(i, entities) {
+
+    if (SAR_FIRSTDAY) {
+        if (SAR_BULL) {
+            SAR_HIGH = entities[i].high;
+            for (var j = 0; j < 2; j++) {
+                if (SAR_HIGH < entities[i - j].high) {
+                    SAR_HIGH = entities[i - j].high;
+                }
+            }
+            SAR_LOW = entities[i].low;
+            for (var j = 0; j < 2; j++) {
+                if (SAR_LOW > entities[i - j].low) {
+                    SAR_LOW = entities[i - j].low;
+                }
+            }
+            entities[i].SAR = SAR_LOW;
+            entities[i].SAR_RED = true;
+            SAR_AF = 0.02;
+        }
+        else {
+            SAR_HIGH = entities[i].high;
+            for (var j = 0; j < 2; j++) {
+                if (SAR_HIGH < entities[i - j].high) {
+                    SAR_HIGH = entities[i - j].high;
+                }
+            }
+            SAR_LOW = entities[i].low;
+            for (var j = 0; j < 2; j++) {
+                if (SAR_LOW > entities[i - j].low) {
+                    SAR_LOW = entities[i - j].low;
+                }
+            }
+            entities[i].SAR = SAR_HIGH;
+            entities[i].SAR_RED = false;
+            SAR_AF = 0.02;
+        }
+        SAR_FIRSTDAY = false;
+    }
+    else {
+        if (SAR_BULL) {
+            entities[i].SAR = entities[i - 1].SAR + SAR_AF * (SAR_HIGH - entities[i - 1].SAR);
+            entities[i].SAR_RED = true;
+            if (entities[i].high > SAR_HIGH) {
+                SAR_HIGH = entities[i].high;
+                SAR_AF = Math.min(SAR_AF + 0.02, 0.2);
+            }
+            if (entities[i].SAR > entities[i].close) {
+                SAR_BULL = false;
+                SAR_FIRSTDAY = true;
+                sar(i, entities);
+            }
+        }
+        else {
+            entities[i].SAR = entities[i - 1].SAR + SAR_AF * (SAR_LOW - entities[i - 1].SAR);
+            entities[i].SAR_RED = false;
+            if (entities[i].low < SAR_LOW) {
+                SAR_LOW = entities[i].low;
+                SAR_AF = Math.min(SAR_AF + 0.02, 0.2);
+            }
+            if (entities[i].SAR < entities[i].close) {
+                SAR_BULL = true;
+                SAR_FIRSTDAY = true;
+                sar(i, entities);
+            }
+        }
+    }
+}
+function GetEntity() {
+
+    const CurveEntityCus = {
+        /// <summary>
+        /// 返回/设置5日均价
+        /// </summary>
+        Average5: 0.00,
+        /// <summary>
+        /// 返回/设置10日均价
+        /// </summary>
+        Average10: 0.00,
+        /// <summary>
+        /// 返回/设置20日均价
+        /// </summary>
+        Average20: 0.00,
+        /// <summary>
+        /// 返回/设置30日均价
+        /// </summary>
+        Average30: 0.00,
+        /// <summary>
+        /// 返回/设置3日均价
+        /// </summary>
+        Average3: 0.00,
+        /// <summary>
+        /// 返回/设置6日均价
+        /// </summary>
+        Average6: 0.00,
+        /// <summary>
+        /// 返回/设置12日均价
+        /// </summary>
+        Average12: 0.00,
+        /// <summary>
+        /// 返回/设置24日均价
+        /// </summary>
+        Average24: 0.00,
+        /// <summary>
+        /// 返回/设置50日均价
+        /// </summary>
+        Average50: 0.00,
+
+        Average60: 0.00,
+
+        /// <summary>
+        /// 返回/设置ASI技术指标
+        /// </summary>
+        ASI: 0.00,
+        /// <summary>
+        /// 返回/设置BIAS_A技术指标
+        /// </summary>
+        BIAS_A: 0.00,
+
+        /// <summary>
+        /// 返回/设置BIAS_B技术指标
+        /// </summary>
+        BIAS_B: 0.00,
+        /// <summary>
+        /// 返回/设置BIAS_C技术指标
+        /// </summary>
+        BIAS_C: 0.00,
+        /// <summary>
+        /// 返回/设置BOLL技术指标
+        /// </summary>
+        BOLL: 0.00,
+        /// <summary>
+        /// 返回/设置BOLL_UPPER技术指标
+        /// </summary>
+        BOLL_UPPER: 0.00,
+        /// <summary>
+        /// 返回/设置BOLL_LOWER技术指标
+        /// </summary>
+        BOLL_LOWER: 0.00,
+        /// <summary>
+        /// 返回/设置CCI_TYP技术指标
+        /// </summary>
+        CCI_TYP: 0.00,
+
+        /// <summary>
+        /// 返回/设置CCI技术指标
+        /// </summary>
+        CCI: 0.00,
+        /// <summary>
+        /// 返回/设置CR_MID技术指标
+        /// </summary>
+        CR_MID: 0.00,
+        /// <summary>
+        /// 返回/设置CR_AX技术指标
+        /// </summary>
+        CR_AX: 0.00,
+
+        /// <summary>
+        /// 返回/设置CR_BX技术指标
+        /// </summary>
+        CR_BX: 0.00,
+        /// <summary>
+        /// 返回/设置CR技术指标
+        /// </summary>
+        CR: 0.00,
+        /// <summary>
+        /// 返回/设置CR_A技术指标
+        /// </summary>
+        CR_A: 0.00,
+        /// <summary>
+        /// 返回/设置CR_B技术指标
+        /// </summary>
+        CR_B: 0.00,
+        /// <summary>
+        /// 返回/设置CR_C技术指标
+        /// </summary>
+        CR_C: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_TR技术指标
+        /// </summary>
+        DMI_TR: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_DMP技术指标
+        /// </summary>
+        DMI_DMP: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_DMM技术指标
+        /// </summary>
+        DMI_DMM: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_EXPMEMA_TR技术指标
+        /// </summary>
+        DMI_EXPMEMA_TR: 0.00,
+
+        /// <summary>
+        /// 返回/设置DMI_EXPMEMA_DMP技术指标
+        /// </summary>
+        DMI_EXPMEMA_DMP: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_EXPMEMA_DMM技术指标
+        /// </summary>
+        DMI_EXPMEMA_DMM: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_PDI技术指标
+        /// </summary>
+        DMI_PDI: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_MDI技术指标
+        /// </summary>
+        DMI_MDI: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_MPDI技术指标
+        /// </summary>
+        DMI_MPDI: 0.00,
+        /// <summary>
+        /// 返回/设置DMI_ADX技术指标
+        /// </summary>
+        DMI_ADX: 0.00,
+
+        /// <summary>
+        /// 返回/设置DMI_ADXR技术指标
+        /// </summary>
+        DMI_ADXR: 0.00,
+        /// <summary>
+        /// 返回/设置KDJ_RSV技术指标
+        /// </summary>
+        KDJ_RSV: 0.00,
+        /// <summary>
+        /// 返回/设置KDJ_K技术指标
+        /// </summary>
+        KDJ_K: 0.00,
+
+        /// <summary>
+        /// 返回/设置KDJ_D技术指标
+        /// </summary>
+        KDJ_D: 0.00,
+        /// <summary>
+        /// 返回/设置KDJ_J技术指标
+        /// </summary>
+        KDJ_J: 0.00,
+        /// <summary>
+        /// 返回/设置MACD_AX技术指标
+        /// </summary>
+        MACD_AX: 0.00,
+
+        /// <summary>
+        /// 返回/设置MACD_BX技术指标
+        /// </summary>
+        MACD_BX: 0.00,
+        /// <summary>
+        /// 返回/设置MACD_DIF技术指标
+        /// </summary>
+        MACD_DIF: 0.00,
+
+        /// <summary>
+        /// 返回/设置MACD_DEA技术指标
+        /// </summary>
+        MACD_DEA: 0.00,
+
+        /// <summary>
+        /// 返回MACD技术指标
+        /// </summary>
+        MACD: 0.00,
+        /// <summary>
+        /// 返回/设置OBV技术指标
+        /// </summary>
+        OBV: 0.00,
+        /// <summary>
+        /// 返回/设置OBV_MA技术指标
+        /// </summary>
+        OBV_MA: 0.00,
+        /// <summary>
+        /// 返回/设置ROC技术指标
+        /// </summary>
+        ROC: 0.00,
+        /// <summary>
+        /// 返回/设置ROC_MA技术指标
+        /// </summary>
+        ROC_MA: 0.00,
+
+        /// <summary>
+        /// 返回/设置RSI_UP_A技术指标
+        /// </summary>
+        RSI_UP_A: 0.00,
+        /// <summary>
+        /// 返回/设置RSI_DN_A技术指标
+        /// </summary>
+        RSI_DN_A: 0.00,
+        /// <summary>
+        /// 返回/设置RSI_UP_B技术指标
+        /// </summary>
+        RSI_UP_B: 0.00,
+
+        /// <summary>
+        /// 返回/设置RSI_DN_B技术指标
+        /// </summary>
+        RSI_DN_B: 0.00,
+        /// <summary>
+        /// 返回/设置RSI_UP_C技术指标
+        /// </summary>
+        RSI_UP_C: 0.00,
+        /// <summary>
+        /// 返回/设置RSI_DN_C技术指标
+        /// </summary>
+        RSI_DN_C: 0.00,
+        /// <summary>
+        /// 返回RSI_A技术指标
+        /// </summary>
+        RSI_A: 0.00,
+        /// <summary>
+        /// 返回RSI_B技术指标
+        /// </summary>
+        RSI_B: 0.00,
+        /// <summary>
+        /// 返回RSI_C技术指标
+        /// </summary>
+        RSI_C: 0.00,
+        /// <summary>
+        /// 返回/设置SAR技术指标
+        /// </summary>
+        SAR: 0.00,
+        /// <summary>
+        /// 返回/设置SAR_RED技术指标
+        /// </summary>
+        SAR_RED: 0.00,
+        /// <summary>
+        /// 返回/设置VR技术指标
+        /// </summary>
+        VR: 0.00,
+        /// <summary>
+        /// 返回/设置VR技术指标
+        /// </summary>
+        VR_MA: 0.00,
+        /// <summary>
+        /// 返回/设置WR_A技术指标
+        /// </summary>
+        WR_A: 0.00,
+        /// <summary>
+        /// 返回/设置WR_B技术指标
+        /// </summary>
+        WR_B: 0.00,
+        /// <summary>
+        /// 返回/设置BBI技术指标
+        /// </summary>
+        BBI: 0.00,
+        /// <summary>
+        /// 零值
+        /// </summary>
+        Zero: 0,
+        volume5: 0.00,
+        volume10: 0.00,
+        time: 0.00,
+        open: 0.00,
+        close: 0.00,
+        high: 0.00,
+        low: 0.00,
+        volume: 0.00
+    }
+
+    return CurveEntityCus;
 }

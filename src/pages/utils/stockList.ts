@@ -1,5 +1,6 @@
 import { AStockList, AStockList_Futu_Token } from "../data/astock/astock"
 import { a_bantaoti, a_bantaoti_futu_token } from "../data/astock/bandaoti"
+import { a_cpo } from "../data/astock/cpo"
 import { a_beijiaosuo } from "../data/astock/beijiaosuo"
 import { a_fengdian } from "../data/astock/fengdain"
 import { a_shangyebaihuo } from "../data/astock/shangyebaihuo"
@@ -60,22 +61,22 @@ export const EasyStockLists = {
     [EStockType.US]: USStockList,
   },
   [EKLT["15M"]] : {
-    [EStockType.A]: [ ...AStockList, ...a_fengdian, ...a_bantaoti, ...a_beijiaosuo, ...a_xiaofeidianzi],
+    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_cpo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
   [EKLT["30M"]] : {
-    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_xiaofeidianzi],
+    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_cpo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
   [EKLT["60M"]] : {
-    [EStockType.A]: [ ...AStockList, ...a_bantaoti, ...a_beijiaosuo],
+    [EStockType.A]: [ ...AStockList, ...a_bantaoti,  ...a_cpo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
   [EKLT["DAY"]] : {
-    [EStockType.A]: [...AStockList, ...a_xiaofeidianzi, ...a_bantaoti, ...a_beijiaosuo, ...a_fengdian],
+    [EStockType.A]: [...AStockList, ...a_bantaoti, ...a_cpo],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },
