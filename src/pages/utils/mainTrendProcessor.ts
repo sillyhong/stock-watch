@@ -78,7 +78,7 @@ async function fetchStockData(
     
     return response?.data?.data;
   } catch (error) {
-    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}):`, error);
+    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}),url=${url}:`, error);
     return null;
   }
 }

@@ -43,7 +43,7 @@ async function executeScheduledTask(): Promise<unknown[] | null> {
     jobType: EJobType.DAY_RSI_WATCH,
     marketType: EMarketType.A,
     apiPath: '/api/day-rise/a',
-    cronExpression: '40 16 * * 1-5',
+    cronExpression: '40 15 * * 1-5',
     isManual: false,
   };
 
@@ -90,7 +90,7 @@ async function executeManualTask(triggeredBy?: string): Promise<unknown> {
     jobType: EJobType.DAY_RSI_WATCH,
     marketType: EMarketType.A,
     apiPath: '/api/day-rise/a',
-    cronExpression: '40 16 * * 1-5',
+    cronExpression: '40 15 * * 1-5',
     isManual: true,
     triggeredBy,
   };
@@ -125,7 +125,7 @@ async function executeManualTask(triggeredBy?: string): Promise<unknown> {
  * - DELETE: 停止定时任务
  * 
  * 定时任务配置：
- * - 执行时间: 工作日 16:40 (中国时区)
+ * - 执行时间: 工作日 15:40 (中国时区)
  * - 执行内容: 检测主涨段股票并发送邮件
  * 
  * 主涨段配置（可在文件顶部修改 MAIN_TREND_CONFIG）：
@@ -154,7 +154,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (isEmpty(ATask)) {
         console.log(`📅 创建主涨段定时监控任务 [${MAIN_TREND_CONFIG.name}]...`);
         
-        ATask = cron.schedule('40 16 * * 1-5', async () => {
+        ATask = cron.schedule('40 15 * * 1-5', async () => {
           try {
             await executeScheduledTask();
           } catch (error) {
@@ -165,7 +165,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           scheduled: true
         });
 
-        console.log(`✅ 主涨段定时监控任务创建成功 [${MAIN_TREND_CONFIG.name}]，将在工作日16:40执行`);
+        console.log(`✅ 主涨段定时监控任务创建成功 [${MAIN_TREND_CONFIG.name}]，将在工作日15:40执行`);
         console.log('   监控条件:');
         console.log(`   1. ${MAIN_TREND_CONFIG.macd.description}`);
         console.log(`   2. ${MAIN_TREND_CONFIG.ma.description}`);
@@ -180,7 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         config_name: MAIN_TREND_CONFIG.name,
         market_type: MAIN_TREND_CONFIG.marketType,
         description: '使用配置化的主涨段条件进行检测（支持A股、港股、美股）',
-        schedule: '工作日 16:40',
+        schedule: '工作日 15:40',
         conditions: {
           condition1: MAIN_TREND_CONFIG.macd.description,
           condition2: MAIN_TREND_CONFIG.ma.description,
@@ -190,7 +190,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         monitoring: {
           enabled: true,
           job_name: SchedulerService.generateJobName(EJobType.DAY_RSI_WATCH, EMarketType.A),
-          cron_description: SchedulerService.getCronDescription('40 16 * * 1-5')
+          cron_description: SchedulerService.getCronDescription('40 15 * * 1-5')
         }
       });
 
