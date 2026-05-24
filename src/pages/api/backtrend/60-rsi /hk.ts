@@ -75,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   if (req.method === 'GET') {
     console.log('isEmpty(HbacktrendTask)', isEmpty(HbacktrendTask));
-    
+    let rsiData 
     try {
       // 创建定时任务（如果不存在）
       if (isEmpty(HbacktrendTask)) {
@@ -95,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      const rsiData = await executeManualHKBacktrendTask(clientIP as string);
+      // rsiData = await executeManualHKBacktrendTask(clientIP as string);
 
       res.status(200).json({ 
         message: 'Cron job set to HK [30]RSI backtrend every workday',

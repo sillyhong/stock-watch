@@ -72,7 +72,7 @@ async function executeManualHKBacktrendTask(triggeredBy?: string): Promise<unkno
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
-  
+  let rsiData
   if (req.method === 'GET') {
     console.log('isEmpty(HbacktrendTask)', isEmpty(HbacktrendTask));
     
@@ -95,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      const rsiData = await executeManualHKBacktrendTask(clientIP as string);
+      //  rsiData = await executeManualHKBacktrendTask(clientIP as string);
 
       res.status(200).json({ 
         message: 'Cron job set to HK [30]RSI backtrend every workday',

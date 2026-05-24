@@ -72,6 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
   
   if (req.method === 'GET') {
+    let rsiData
     console.log('isEmpty(USTask)', isEmpty(USTask));
     
     try {
@@ -94,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      const rsiData = await executeManualUSTask(clientIP as string);
+      rsiData = await executeManualUSTask(clientIP as string);
 
       res.status(200).json({ 
         message: 'Cron job set to check US RSI every workday.',

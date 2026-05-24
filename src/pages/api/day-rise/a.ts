@@ -148,6 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   if (req.method === 'GET') {
     console.log('isEmpty(ATask)', isEmpty(ATask));
+    let mainTrendData
     
     try {
       // 创建定时任务（如果不存在）
@@ -173,7 +174,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      const mainTrendData = await executeManualTask(clientIP as string);
+     mainTrendData = await executeManualTask(clientIP as string);
 
       res.status(200).json({ 
         message: `主涨段监控任务已启动 [${MAIN_TREND_CONFIG.name}]`,
