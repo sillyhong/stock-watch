@@ -101,7 +101,7 @@ export class RSIService {
    */
   static async batchSaveRSIRawData(rsiRawDataList: IRSIRawData[]): Promise<any[]> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log('🔄 数据库存储已禁用，跳过RSI原始数据保存');
+      // console.log('🔄 数据库存储已禁用，跳过RSI原始数据保存');
       return [];
     }
 
@@ -152,7 +152,7 @@ export class RSIService {
    */
   static async batchSaveRSIRecommendations(recommendationDataList: IRSIRecommendationData[]): Promise<void> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log('🔄 数据库存储已禁用，跳过RSI推荐数据保存');
+      // console.log('🔄 数据库存储已禁用，跳过RSI推荐数据保存');
       return;
     }
 
@@ -210,7 +210,7 @@ export class RSIService {
    */
   static async batchSaveRSIData(rsiDataList: IRSISaveData[]): Promise<void> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log('🔄 数据库存储已禁用，跳过RSI数据保存');
+      // console.log('🔄 数据库存储已禁用，跳过RSI数据保存');
       return;
     }
 

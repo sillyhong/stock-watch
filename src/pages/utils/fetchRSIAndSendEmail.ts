@@ -240,7 +240,7 @@ export const fetchRSIAndSendEmail = async ({
         console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库保存失败:`, databaseError);
       }
     } else if (!ENABLE_DATABASE_STORAGE) {
-      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库存储已禁用，跳过RSI数据保存`);
+      // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 数据库存储已禁用，跳过RSI数据保存`);
     }
 
     // ================================= 结果返回 =================================

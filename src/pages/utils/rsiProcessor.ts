@@ -102,7 +102,7 @@ export const processRSIDataAsync = async (params: IRSIProcessParams): Promise<IR
   const kltDesc = getEKLTDesc(klt);
 
   const startTime = Date.now();
-  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 🚀 开始异步并行处理${allResults.length}个有效响应`);
+  // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 🚀 开始异步并行处理${allResults.length}个有效响应`);
 
   // 创建异步任务数组，使用Promise.all实现真正的并行处理
   const processTasks = allResults.map(async (responseData: unknown, index) => {

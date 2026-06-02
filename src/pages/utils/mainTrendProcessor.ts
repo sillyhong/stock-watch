@@ -303,9 +303,7 @@ export async function detectMainTrend(
   const secid = `${stockCode}`;
   const checkTime = dayjs().format('YYYY-MM-DD HH:mm:ss');
   
-  console.log(`\n========== 开始检测主涨段 [${finalConfig.name}] ==========`);
-  console.log(`股票: ${stockName} (${stockCode})`);
-  console.log(`检测时间: ${checkTime}`);
+  console.log(`\n========== 开始检测主涨段 [${finalConfig.name}] ========== 股票: ${stockName} (${stockCode}) 检测时间: ${checkTime}` );
   
   // 初始化返回结果（默认为不符合）
   const result: IMainTrendResult = {
@@ -333,7 +331,7 @@ export async function detectMainTrend(
   };
   
   // ========== 条件1: 检查MACD金叉 ==========
-  console.log(`\n检查条件1: ${finalConfig.macd.description}...`);
+  // console.log(`\n检查条件1: ${finalConfig.macd.description}...`);
   const macdResult = await checkMacdGoldenCross(
     secid, 
     finalConfig.macd.klt, 
@@ -345,17 +343,16 @@ export async function detectMainTrend(
   result.macdDiff = macdResult.diff;
   result.macdDea = macdResult.dea;
   
-  console.log(`条件1结果: ${macdResult.isGoldenCross ? '✓ 符合' : '✗ 不符合'} (DIFF=${macdResult.diff}, DEA=${macdResult.dea})`);
+  // console.log(`条件1结果: ${macdResult.isGoldenCross ? '✓ 符合' : '✗ 不符合'} (DIFF=${macdResult.diff}, DEA=${macdResult.dea})`);
   
   // 如果MACD不符合，直接返回
   if (!macdResult.isGoldenCross) {
     console.log(`\n❌ MACD金叉不符合，跳过后续检查`);
-    console.log(`====================================\n`);
     return result;
   }
   
   // ========== 条件2: 检查MA均线 ==========
-  console.log(`\n检查条件2: ${finalConfig.ma.description}...`);
+  // console.log(`\n检查条件2: ${finalConfig.ma.description}...`);
   const maResult = await checkMA(
     secid, 
     finalConfig.ma.klt, 
@@ -374,17 +371,16 @@ export async function detectMainTrend(
     console.log(`真实股票名称: ${result.stockName}`);
   }
   
-  console.log(`条件2结果: ${maResult.isAbove ? '✓ 符合' : '✗ 不符合'} (价格=${maResult.currentPrice}, MA${finalConfig.ma.period}=${maResult.maValue})`);
+  // console.log(`条件2结果: ${maResult.isAbove ? '✓ 符合' : '✗ 不符合'} (价格=${maResult.currentPrice}, MA${finalConfig.ma.period}=${maResult.maValue})`);
   
   // 如果MA不符合，直接返回
   if (!maResult.isAbove) {
     console.log(`\n❌ MA${finalConfig.ma.period}不符合，跳过后续检查`);
-    console.log(`====================================\n`);
     return result;
   }
   
   // ========== 条件3: 检查BOLL中轨 ==========
-  console.log(`\n检查条件3: ${finalConfig.boll.description}...`);
+  // console.log(`\n检查条件3: ${finalConfig.boll.description}...`);
   const bollResult = await checkBoll(
     secid, 
     finalConfig.boll.klt, 
@@ -396,7 +392,7 @@ export async function detectMainTrend(
   result.bollMid = bollResult.mid;
   result.bollCurrent = bollResult.current;
   
-  console.log(`条件3结果: ${bollResult.isAbove ? '✓ 符合' : '✗ 不符合'} (价格=${bollResult.current}, BOLL中轨=${bollResult.mid})`);
+  // console.log(`条件3结果: ${bollResult.isAbove ? '✓ 符合' : '✗ 不符合'} (价格=${bollResult.current}, BOLL中轨=${bollResult.mid})`);
   
   // 判断是否满足主涨段条件（三个条件都满足）
   result.isMainTrend = 
@@ -406,7 +402,6 @@ export async function detectMainTrend(
   
   // 打印最终结果
   console.log(`\n🎯 主涨段判断: ${result.isMainTrend ? '✅ 符合主涨段' : '❌ 不符合主涨段'}`);
-  console.log(`====================================\n`);
   
   return result;
 }
@@ -424,12 +419,12 @@ export async function detectMainTrendBatch(
   // 如果没有传入配置，使用A股的默认配置
   const finalConfig = config || DEFAULT_MAIN_TREND_CONFIG[EStockType.A];
   
-  console.log(`\n========== 批量检测主涨段 [${finalConfig.name}] ==========`);
-  console.log(`股票数量: ${stocks.length}`);
-  console.log(`检测条件:`);
-  console.log(`  1. ${finalConfig.macd.description} (${getKlineTypeDescription(finalConfig.macd.klt)})`);
-  console.log(`  2. ${finalConfig.ma.description} (${getKlineTypeDescription(finalConfig.ma.klt)})`);
-  console.log(`  3. ${finalConfig.boll.description} (${getKlineTypeDescription(finalConfig.boll.klt)})`);
+  console.log(`\n========== 批量检测主涨段 [${finalConfig.name}] ========== 股票数量: ${stocks.length} 检测条件:`);
+  console.log(`  
+    1. ${finalConfig.macd.description} (${getKlineTypeDescription(finalConfig.macd.klt)})
+    2. ${finalConfig.ma.description} (${getKlineTypeDescription(finalConfig.ma.klt)}) 
+    3. ${finalConfig.boll.description} (${getKlineTypeDescription(finalConfig.boll.klt)})
+  `);
   
   const results: IMainTrendResult[] = [];
   
@@ -456,9 +451,7 @@ export async function detectMainTrendBatch(
     }
   }
   
-  console.log(`\n========== 批量检测完成 ==========`);
   console.log(`符合条件的股票: ${results.length} 只`);
-  console.log(`====================================\n`);
   
   return results;
 }

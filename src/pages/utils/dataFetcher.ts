@@ -90,7 +90,7 @@ export const batchFetchStockData = async ({
   let totalRequestCount = 0;
   let successfulRequestCount = 0;
 
-  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 开始批量获取数据，共${batches.length}批次，${stockLists.length}只股票`);
+  // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 开始批量获取数据，共${batches.length}批次，${stockLists.length}只股票`);
 
   for (let batchIdx = 0; batchIdx < batches.length; batchIdx++) {
     const batch = batches[batchIdx];
@@ -143,7 +143,7 @@ export const batchFetchStockData = async ({
         await randomDelay(BATCH_DELAY_RANGE.min, BATCH_DELAY_RANGE.max);
       }
 
-      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 执行第${batchIdx + 1}/${batches.length}批次`);
+      // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 执行第${batchIdx + 1}/${batches.length}批次`);
       const batchResults = await Promise.all(requests);
       allResults.push(...batchResults.filter(result => result !== null));
     } catch (err) {
@@ -213,12 +213,7 @@ export const logRequestStatistics = (
 ): void => {
   const { requestFailures, totalRequestCount, successfulRequestCount } = result;
   
-  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求完成统计:`);
-  console.log(`  请求类型: ${reqType === EReqType.EASY_MONEY ? '东方财富' : '富途'}`);
-  console.log(`  总请求数: ${totalRequestCount}`);
-  console.log(`  成功请求数: ${successfulRequestCount}`);
-  console.log(`  失败请求数: ${requestFailures.length}`);
-  console.log(`  成功率: ${totalRequestCount > 0 ? ((successfulRequestCount / totalRequestCount) * 100).toFixed(2) : 0}%`);
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求完成统计: 请求类型: ${reqType === EReqType.EASY_MONEY ? '东方财富' : '富途'}   总请求数: ${totalRequestCount} 成功请求数: ${successfulRequestCount} 失败请求数: ${requestFailures.length} 成功率: ${totalRequestCount > 0 ? ((successfulRequestCount / totalRequestCount) * 100).toFixed(2) : 0}%`);
 
   // 如果有失败请求，按错误类型分组展示
   if (requestFailures.length > 0) {
@@ -233,11 +228,11 @@ export const logRequestStatistics = (
     console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 失败请求详情:`);
     Object.entries(failuresByType).forEach(([errorType, failures]) => {
       console.log(`  ${errorType} (${failures.length}个):`);
-      failures.slice(0, 5).forEach(failure => { // 只显示前5个
+      failures.slice(0, 2).forEach(failure => { // 只显示前2个
         console.log(`    - ${failure.stockName || failure.stockId}: ${failure.errorMessage}`);
       });
-      if (failures.length > 5) {
-        console.log(`    ... 还有${failures.length - 5}个${errorType}失败`);
+      if (failures.length > 2) {
+        console.log(`    ... 还有${failures.length - 2}个${errorType}失败`);
       }
     });
   }

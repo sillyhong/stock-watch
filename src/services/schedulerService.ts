@@ -36,7 +36,7 @@ export class SchedulerService {
    */
   static async createExecutionLog(context: ISchedulerContext): Promise<SchedulerLog | null> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log(`🔄 数据库存储已禁用，跳过任务日志记录: ${context.jobName}`);
+      // console.log(`🔄 数据库存储已禁用，跳过任务日志记录: ${context.jobName}`);
       return null;
     }
     
@@ -68,7 +68,7 @@ export class SchedulerService {
    */
   static async recordSuccess(logId: number, result: IExecutionResult): Promise<void> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log(`🔄 数据库存储已禁用，跳过成功日志记录: ${logId}`);
+      // console.log(`🔄 数据库存储已禁用，跳过成功日志记录: ${logId}`);
       return;
     }
 
@@ -90,7 +90,7 @@ export class SchedulerService {
    */
   static async recordFailure(logId: number, result: IExecutionResult, shouldRetry: boolean = true): Promise<void> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log(`🔄 数据库存储已禁用，跳过失败日志记录: ${logId}`);
+      // console.log(`🔄 数据库存储已禁用，跳过失败日志记录: ${logId}`);
       return;
     }
 
@@ -115,7 +115,7 @@ export class SchedulerService {
    */
   static async recordTimeout(logId: number): Promise<void> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log(`🔄 数据库存储已禁用，跳过超时日志记录: ${logId}`);
+      // console.log(`🔄 数据库存储已禁用，跳过超时日志记录: ${logId}`);
       return;
     }
 
@@ -143,7 +143,7 @@ export class SchedulerService {
   ): Promise<T | null> {
     // 检查数据库存储是否启用
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log(`🔄 数据库存储已禁用，直接执行任务不记录日志: ${context.jobName}`);
+      // console.log(`🔄 数据库存储已禁用，直接执行任务不记录日志: ${context.jobName}`);
       try {
         const result = await executionFunction();
         console.log(`✅ 任务执行成功 [${context.jobName}] (数据库禁用模式)`);
@@ -229,7 +229,7 @@ export class SchedulerService {
     marketType?: EMarketType
   ): Promise<SchedulerLog[]> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log('🔄 数据库存储已禁用，返回空的重试任务列表');
+      // console.log('🔄 数据库存储已禁用，返回空的重试任务列表');
       return [];
     }
 
@@ -262,7 +262,7 @@ export class SchedulerService {
    */
   static async getExecutionStats(days: number = 7): Promise<Record<string, unknown>> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log('🔄 数据库存储已禁用，返回默认执行统计');
+      // console.log('🔄 数据库存储已禁用，返回默认执行统计');
       return {
         summary: {
           total_executions: 0,
@@ -345,7 +345,7 @@ export class SchedulerService {
    */
   static async cleanupOldLogs(retentionDays: number = 30): Promise<number> {
     if (!ENABLE_DATABASE_STORAGE) {
-      console.log('🔄 数据库存储已禁用，跳过日志清理操作');
+      // console.log('🔄 数据库存储已禁用，跳过日志清理操作');
       return 0;
     }
 
