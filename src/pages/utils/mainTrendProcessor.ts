@@ -78,7 +78,11 @@ async function fetchStockData(
     
     return response?.data?.data;
   } catch (error) {
-    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}),url=${url}:`, error);
+    const errorJSON = JSON.stringify(error)
+    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}),url=${url}:`,errorJSON.substring(0, 100));
+    if(errorJSON.includes('socket hang up')) {
+      throw 'socket hang up'
+    }
     return null;
   }
 }
@@ -122,6 +126,9 @@ async function checkMacdGoldenCross(secid: string, klt: number, lmt: number, fqt
     return { isGoldenCross, diff, dea };
   } catch (error) {
     console.error(`检查MACD金叉失败 (klt=${klt}):`, error);
+    if(JSON.stringify(error)?.includes('socket hang up')) {
+      throw 'socket hang up'
+    }
     return { isGoldenCross: false, diff: '--', dea: '--' };
   }
 }
@@ -429,7 +436,7 @@ export async function detectMainTrendBatch(
   const results: IMainTrendResult[] = [];
   
   // 为了避免请求过快被限制，分批处理，每批5只股票
-  const batchSize = 20;
+  const batchSize = 10;
   for (let i = 0; i < stocks.length; i += batchSize) {
     const batch = stocks.slice(i, i + batchSize);
     
@@ -447,7 +454,7 @@ export async function detectMainTrendBatch(
     
     // 批次间延迟，避免请求过快
     if (i + batchSize < stocks.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 3000));
     }
   }
   

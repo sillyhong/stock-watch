@@ -147,6 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
   
   if (req.method === 'GET') {
+    let tryAgain = true
     console.log('isEmpty(ATask)', isEmpty(ATask));
     let mainTrendData
     
@@ -197,6 +198,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     } catch (error) {
       console.error(`❌ 主涨段监控API执行失败 [${MAIN_TREND_CONFIG.name}]:`, error);
+      
+      // 1小时候补偿一次请求
+      if(JSON.stringify(error)?.includes('socket hang up') && tryAgain) {
+        tryAgain = false
+        console.log(`1小时候补偿一次请求 [${MAIN_TREND_CONFIG.name}]`);
+
+        setTimeout(() => {
+           executeManualTask(clientIP as string);
+        },3600000)
+        
+        res.status(200).json({ 
+          message: `主涨段监控任务执行失败 [${MAIN_TREND_CONFIG.name}], 重新发起一次尝试`,
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
+      
       res.status(500).json({ 
         message: `主涨段监控任务执行失败 [${MAIN_TREND_CONFIG.name}]`,
         error: error instanceof Error ? error.message : String(error)
