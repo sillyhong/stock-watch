@@ -15,6 +15,7 @@ let HMorningTask: cron.ScheduledUSTask;
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     let rsiData: any
+    const isImmediately = req.query?.isImmediately || false
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
       HTask = cron.schedule('05 */30 10-16 * * 1-5', ()=>{
@@ -39,7 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     //     scheduled: true
     //   }); 
     // }
-    // rsiData = await fetchHKRSI({ klt: EKLT['30M'], sendEmail: false})
+    if(isImmediately) {
+      rsiData = await fetchHKRSI({ klt: EKLT['30M'], sendEmail: false})
+    }
 
     res.status(200).json({ message: 'Cron job set to check HK RSI every 30 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {

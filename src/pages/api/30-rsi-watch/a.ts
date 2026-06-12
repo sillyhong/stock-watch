@@ -67,6 +67,7 @@ let rsiData
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     console.log('isEmpty(ATask)',isEmpty(ATask))
+    const isImmediately = req.query?.isImmediately || false
     if (isEmpty(ATask)) {
       ATask = cron.schedule('*/30 10-15 * * 1-5', async ()=>{
         try {
@@ -92,10 +93,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         scheduled: true
       }); 
     }
-    
-    // const rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['30M'], sendEmail: false})
-    // const rsiData2 = await fetchARSI({ reqType: EReqType.FU_TU, klt: EKLT['30M'], sendEmail: false})
-
+    if(isImmediately) {
+       rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['30M'], sendEmail: false})
+      // const rsiData2 = await fetchARSI({ reqType: EReqType.FU_TU, klt: EKLT['30M'], sendEmail: false})
+    }
 
     res.status(200).json({ message: 'Cron job set to check A RSI every 30 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {

@@ -88,6 +88,7 @@ async function executeManualBacktrendTask(triggeredBy?: string): Promise<unknown
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+  const isImmediately = req.query?.isImmediately || false
   
   if (req.method === 'GET') {
     console.log('isEmpty(ATBackTrendask)', isEmpty(ATBackTrendask));
@@ -112,7 +113,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      // rsiData = await executeManualBacktrendTask(clientIP as string);
+      if(isImmediately) {
+        rsiData = await executeManualBacktrendTask(clientIP as string);
+      }
 
       res.status(200).json({ 
         message: 'Cron job set to A [15]RSI backtrend every workday.',

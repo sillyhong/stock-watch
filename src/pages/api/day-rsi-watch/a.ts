@@ -84,6 +84,7 @@ async function executeManualTask(triggeredBy?: string): Promise<unknown> {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+  const isImmediately = req.query?.isImmediately || false
   
   if (req.method === 'GET') {
     let rsiData
@@ -109,7 +110,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      rsiData = await executeManualTask(clientIP as string);
+      if(isImmediately) {
+        rsiData = await executeManualTask(clientIP as string);
+      }
 
       res.status(200).json({ 
         message: 'Cron job set to check A RSI every workday.',

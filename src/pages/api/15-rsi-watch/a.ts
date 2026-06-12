@@ -62,11 +62,12 @@ const executeRSIWithFallback = async (klt: EKLT, currentDate: dayjs.Dayjs) => {
 
 let ATask: cron.ScheduledTask | null = null;
 let AMorningTask: cron.ScheduledTask | null = null;
-let rsiData
+let rsiData: any;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     console.log('isEmpty(ATask)',isEmpty(ATask))
+    const isImmediately = req.query?.isImmediately || false
     if (isEmpty(ATask)) {
       ATask = cron.schedule('*/15 9-15 * * 1-5', async ()=>{
         try {
@@ -92,9 +93,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         scheduled: true
       }); 
     }
-    
-    // const rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['15M'], sendEmail: false})
-    // const rsiData2 = await fetchARSI({ reqType: EReqType.FU_TU, klt: EKLT['15M'], sendEmail: false})
+    if(isImmediately) {
+      rsiData = await fetchARSI({ reqType: EReqType.EASY_MONEY, klt: EKLT['15M'], sendEmail: false})
+      // const rsiData2 = await fetchARSI({ reqType: EReqType.FU_TU, klt: EKLT['15M'], sendEmail: false})
+    }
+   
 
 
     res.status(200).json({ message: 'Cron job set to check A RSI every 15 minutes.', data: rsiData });

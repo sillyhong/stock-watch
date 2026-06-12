@@ -145,6 +145,7 @@ async function executeManualTask(triggeredBy?: string): Promise<unknown> {
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
+  const isImmediately = req.query?.isImmediately || false
   
   if (req.method === 'GET') {
     let tryAgain = true
@@ -175,7 +176,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-     mainTrendData = await executeManualTask(clientIP as string);
+      if(isImmediately) {
+        mainTrendData = await executeManualTask(clientIP as string);
+      }
 
       res.status(200).json({ 
         message: `主涨段监控任务已启动 [${MAIN_TREND_CONFIG.name}]`,

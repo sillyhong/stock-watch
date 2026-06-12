@@ -13,6 +13,7 @@ let USTask: cron.ScheduledUSTask;
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     let rsiData
+    const isImmediately = req.query?.isImmediately || false
 
     if (isEmpty(USTask)) {
       USTask = cron.schedule('*/15 22-23,0-4 * * 1-5', ()=>{
@@ -24,7 +25,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-      // rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
+      if(isImmediately) {
+        rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
+      }
     }
     res.status(200).json({ message: 'Cron job set to check US RSI every 15 minutes.',data: rsiData });
   } else if (req.method === 'DELETE') {

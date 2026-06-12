@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { headers } from 'next/headers';
 import cron from 'node-cron';
 import isEmpty from "lodash/isEmpty";
 import { fetchARSI } from '@/pages/utils/fetchRSIAndSendEmail';
@@ -86,7 +87,7 @@ async function executeManualBacktrendTask(triggeredBy?: string): Promise<unknown
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const clientIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'unknown';
-  
+  const isImmediately = req.query?.isImmediately || false
   if (req.method === 'GET') {
     let rsiData
     console.log('isEmpty(A30BackTrendTask)', isEmpty(A30BackTrendTask));
@@ -109,7 +110,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       // 执行手动任务
-      // const rsiData = await executeManualBacktrendTask(clientIP as string);
+      if(isImmediately) {
+         rsiData = await executeManualBacktrendTask(clientIP as string);
+      }
 
       res.status(200).json({ 
         message: 'Cron job set to A [30]RSI backtrend every workday.',
