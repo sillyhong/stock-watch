@@ -8,6 +8,17 @@ import {
   getMAIndexByPeriod,
   getKlineTypeDescription 
 } from './mainTrendConfig';
+import {
+  ACCEPT_LANGUAGES,
+  ACCEPTS,
+  COOKIES,
+  REFERERS,
+  getRandomUserAgent,
+  getRandomUserToken,
+  randomDelay,
+  randomFromArray,
+  randomIP,
+} from './header';
 import { a_beijiaosuo_cn } from '../data/astock/beijiaosuo';
 import { EStockType } from '../interface';
 
@@ -44,6 +55,54 @@ export interface IMainTrendResult {
   configName: string;
 }
 
+const EASTMONEY_CIRCUIT_BREAK_ERROR = 'EASTMONEY_CIRCUIT_BREAK';
+let eastmoneyCircuitOpen = false;
+
+function resetEastmoneyCircuit() {
+  eastmoneyCircuitOpen = false;
+}
+
+function openEastmoneyCircuit() {
+  eastmoneyCircuitOpen = true;
+}
+
+function isEastmoneyCircuitBreakError(error: unknown): boolean {
+  const errorText = [
+    error instanceof Error ? error.message : '',
+    typeof error === 'string' ? error : '',
+    JSON.stringify(error),
+    String(error),
+    typeof error === 'object' && error !== null && 'code' in error ? String(error.code) : '',
+  ].join(' ');
+  return (
+    errorText.includes(EASTMONEY_CIRCUIT_BREAK_ERROR) ||
+    errorText.includes('socket hang up') ||
+    errorText.includes('ECONNRESET')
+  );
+}
+
+function buildEastmoneyHeaders() {
+  return {
+    'User-Agent': getRandomUserAgent(),
+    'Accept': randomFromArray(ACCEPTS),
+    'Accept-Language': randomFromArray(ACCEPT_LANGUAGES),
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'Origin': 'https://quote.eastmoney.com',
+    'Referer': randomFromArray(REFERERS),
+    'Connection': 'keep-alive',
+    // cookie引起的socket hang up
+    // 'Cookie': randomFromArray(COOKIES),
+    'Cookie': 'qgqp_b_id=b898f5e6ae213256636d2ac010423889; st_nvi=T8VaEUWdkb_sskT2hfMVzadd2; quote_lt=1; nid18=0f38fc1a4d417dd2a32a0335f8de07eb; nid18_create_time=1774771880634; gviem=u91aImC1GZZFwv7Anax-va67a; gviem_create_time=1774771880634; emshistory=%5B%22000725%22%2C%22%E5%B8%9D%E7%A7%91%E8%82%A1%E4%BB%BD%22%5D; mtp=1; ct=FTL0qafJAyvTd7cLLCw2yGK7xK36FhHbA5IpNz66TbjbrD0HmbWxMYzIKIoUhdbuY9fR2w16MMx-7bnxa_GvTnqEGJLSnNgng0Co4SK-R9TgqgeSV3INAJQHSCEyfQc_6vFOYLzWYVX2_ECIXeX19UtVACmho9Jq_xWdDdEzhO8; ut=FobyicMgeV4zP63_B6e5XMcasMYUTUdXFriGH84GknZuJwoBF4JKaI0OXzKaSOdteSdXV7ZEKyHH5jefGM8OBnWYuR-EbeuDPWkiRaHqZxUvkXKpzfU7WSMdtXBzA36O1loBJ-z3AwWeB3S1la9fnS7efa-kULdG21wN6qMzhLyjsAS3NReFLzbsnJ_5k2PzNmQVfKLEMQayrbJyibVC3DheLLvguKdsDojDMU1UCG818rUFoTkDzXNgyQUoOPc50iR5bjP2CWVh6z9i20e9jMWQsq_Ymv7URFUtdnWjt9FXGKjxDjvPuRCacBZ1JfDp7WoVMgqzTBsedh6GhW2TYbkiY2g2PLpAGN2gabI9fY0yfYG_ptGCaF4otdGGW2zmz6DXpszm9crCJzBOnkp_uEbyvx-2ShzoW42jC221cLM4yEfvpyPL4har8_JkOAzXTEc6boM4n7QDlTY7D3gxta5RQogCQqalK531DI0WlXE4on6h20G6ydDqHTOPOOhLpgc4KWVzGEQ; pi=1181325662278720%3Ba1181325662278720%3B%E9%87%91%E5%8F%89%E9%A9%BE55%E7%BA%BF%3BG9LXinD5cq0tMk4YHqvW7rW6rOTW9RM1MNpN%2BybYIGDs3TA1F0bRlnXfWwO2vJqwPoP9SA%2FbAEgJ6pjO3AxYeqv8FJ2rQIzRzImpUNEahBx7lCkHBud%2FpOM5z%2FjYG0A44U3dmASZ7UtFrVka2QW34nxh%2BumYx0Nc6C3vkZZim%2BmjfKfIEvYkZMAPiQQVmU%2BuldRrGhmQ%3BG7DHaR3t8WX0MHiPoUkRkOgscHc3shcAtt91lqXPUTvCJ1BeOhnB6wsKdnCoEb9GfAKe8qILfKHWcTSDJSiuBJeD4XLtHUOsO%2BPUB%2F5zdCZCSj5RPJBzTzaVAipKAmbQrD1A3KJUwwYu9RJQ06b%2FmS7XCyA%2B4Q%3D%3D; uidal=1181325662278720%e9%87%91%e5%8f%89%e9%a9%be55%e7%ba%bf; sid=138013372; vtpst=|; st_si=81781159463632; st_pvi=01848825546785; st_sp=2026-01-14%2017%3A24%3A13; st_inirUrl=https%3A%2F%2Fwx.mail.qq.com%2F; st_sn=1; st_psi=20260616165156921-111000300841-7981005574; st_asi=delete; fullscreengg=1; fullscreengg2=1; wsc_checkuser_ok=1',
+    'Sec-Fetch-Dest': 'empty',
+    'Sec-Fetch-Mode': 'cors',
+    'Sec-Fetch-Site': 'same-site',
+    'X-Forwarded-For': randomIP(),
+    'X-Real-IP': randomIP(),
+  };
+}
+
 /**
  * 获取股票数据的通用函数
  * @param secid 股票代码（格式：市场代码.股票代码，如 0.300033）
@@ -57,31 +116,31 @@ async function fetchStockData(
   lmt: number,
   fqt: number = 1
 ) {
-  const userAgents = [
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_6_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  ];
-  const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
-  
+  if (eastmoneyCircuitOpen) {
+    throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
+  }
+
+  await randomDelay(200, 600);
+
   const endDate = dayjs().format('YYYYMMDD');
-  const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=${klt}&fqt=${fqt}&end=${endDate}&lmt=${lmt}`;
+  const userToken = getRandomUserToken();
+  const requestTs = Date.now();
+  const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&ut=${userToken}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=${klt}&fqt=${fqt}&end=${endDate}&lmt=${lmt}&_=${requestTs}`;
+  const headers = buildEastmoneyHeaders()
   
   try {
     const response = await axios.get(url, {
       timeout: 8000,
-      headers: {
-        'User-Agent': userAgent,
-        'Referer': 'https://quote.eastmoney.com/',
-      },
+      headers,
     });
     
     return response?.data?.data;
   } catch (error) {
-    const errorJSON = JSON.stringify(error)
-    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}),url=${url}:`,errorJSON.substring(0, 100));
-    if(errorJSON.includes('socket hang up')) {
-      throw 'socket hang up'
+    const errorJSON = JSON.stringify(error);
+    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}),url=${url}:`, errorJSON.substring(0, 200), 'headers', headers);
+    if (isEastmoneyCircuitBreakError(error)) {
+      openEastmoneyCircuit();
+      throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
     }
     return null;
   }
@@ -116,18 +175,23 @@ async function checkMacdGoldenCross(secid: string, klt: number, lmt: number, fqt
     
     // 获取最新一条数据（数组最后一个元素）
     const latestMacd = macdData[macdData.length - 1];
+    const latestSecondMacd = macdData[macdData.length - 2];
     const diff = Number(latestMacd[1]); // DIFF值
     const dea = Number(latestMacd[2]);  // DEA值
+    const latestMdata = Number(latestMacd[3]);  // Modal值
+    const latestSecondMdata = Number(latestSecondMacd[3]);  // Modal值
     
     // 金叉：DIFF > DEA
-    const isGoldenCross = diff > dea;
-    console.log("🚀 ~ checkMacdGoldenCross ~ secid:", secid, 'diff',diff, 'dea',dea, 'isGoldenCross',isGoldenCross)
+    const isLineGoldenCross = diff > dea;
+    const isModalGoldenCross = latestMdata > latestSecondMdata || latestSecondMdata == latestMdata
+    const isGoldenCross = isLineGoldenCross && isModalGoldenCross
+    // console.log("🚀 ~ checkMacdGoldenCross ~ secid:", secid, 'diff',diff, 'dea',dea, 'latestMdata', latestMdata, 'latestSecondMdata',latestSecondMdata, 'isGoldenCross',isGoldenCross)
     
     return { isGoldenCross, diff, dea };
   } catch (error) {
     console.error(`检查MACD金叉失败 (klt=${klt}):`, error);
-    if(JSON.stringify(error)?.includes('socket hang up')) {
-      throw 'socket hang up'
+    if (isEastmoneyCircuitBreakError(error)) {
+      throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
     }
     return { isGoldenCross: false, diff: '--', dea: '--' };
   }
@@ -179,6 +243,9 @@ async function checkMA(secid: string, klt: number, period: number, lmt: number, 
     return { isAbove, currentPrice, maValue, stockName };
   } catch (error) {
     console.error(`检查MA失败 (klt=${klt}, period=${period}):`, error);
+    if (isEastmoneyCircuitBreakError(error)) {
+      throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
+    }
     return { isAbove: false, currentPrice: 0, maValue: '--', stockName: '' };
   }
 }
@@ -263,6 +330,9 @@ async function checkBoll(secid: string, klt: number, lmt: number, fqt: number) {
     return { isAbove, current: currentPrice, mid: bollMid };
   } catch (error) {
     console.error(`检查BOLL失败 (klt=${klt}):`, error);
+    if (isEastmoneyCircuitBreakError(error)) {
+      throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
+    }
     return { isAbove: false, current: 0, mid: '--' };
   }
 }
@@ -423,6 +493,8 @@ export async function detectMainTrendBatch(
   stocks: Array<{ code: string; name: string }>,
   config?: IMainTrendConditionConfig
 ): Promise<IMainTrendResult[]> {
+  resetEastmoneyCircuit();
+
   // 如果没有传入配置，使用A股的默认配置
   const finalConfig = config || DEFAULT_MAIN_TREND_CONFIG[EStockType.A];
   
@@ -435,18 +507,33 @@ export async function detectMainTrendBatch(
   
   const results: IMainTrendResult[] = [];
   
-  // 为了避免请求过快被限制，分批处理，每批5只股票
-  const batchSize = 10;
+  // 限流后要立即熔断，使用单只串行执行避免继续放大请求
+  const batchSize = 8;
   for (let i = 0; i < stocks.length; i += batchSize) {
+    if (eastmoneyCircuitOpen) {
+      console.warn('东方财富请求已熔断，停止后续主涨段检测');
+      break;
+    }
+
     const batch = stocks.slice(i, i + batchSize);
     
     console.log(`\n处理批次 ${Math.floor(i / batchSize) + 1}/${Math.ceil(stocks.length / batchSize)}...`);
     
-    const batchResults = await Promise.all(
-      batch.map(stock => 
-        detectMainTrend(stock.code, stock.name, finalConfig)
-      )
-    );
+    let batchResults: IMainTrendResult[];
+    try {
+      batchResults = await Promise.all(
+        batch.map(stock =>
+          detectMainTrend(stock.code, stock.name, finalConfig)
+        )
+      );
+    } catch (error) {
+      if (isEastmoneyCircuitBreakError(error)) {
+        openEastmoneyCircuit();
+        console.warn('东方财富返回 socket hang up/ECONNRESET，已触发熔断并停止后续请求');
+        break;
+      }
+      throw error;
+    }
     
     // 只保留符合主涨段条件的股票
     const mainTrendStocks = batchResults.filter(r => r.isMainTrend);

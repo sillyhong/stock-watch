@@ -18,7 +18,7 @@ async function executeScheduledUSTask(): Promise<unknown[] | null> {
     jobType: EJobType.DAY_RSI_WATCH,
     marketType: EMarketType.US,
     apiPath: '/api/day-rsi-watch/us',
-    cronExpression: '0 18 * * 1-5',
+    cronExpression: '0 3 * * 1-5',
     isManual: false,
   };
 
@@ -50,7 +50,7 @@ async function executeManualUSTask(triggeredBy?: string): Promise<unknown> {
     jobType: EJobType.DAY_RSI_WATCH,
     marketType: EMarketType.US,
     apiPath: '/api/day-rsi-watch/us',
-    cronExpression: '0 18 * * 1-5',
+    cronExpression: '0 3 * * 1-5',
     isManual: true,
     triggeredBy,
   };
@@ -81,7 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (isEmpty(USTask)) {
         console.log('📅 创建美股日RSI定时任务...');
         
-        USTask = cron.schedule('0 18 * * 1-5', async () => {
+        USTask = cron.schedule('0 3 * * 1-5', async () => {
           try {
             await executeScheduledUSTask();
           } catch (error) {
@@ -102,13 +102,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       res.status(200).json({ 
         message: 'Cron job set to check US RSI every workday.',
-        schedule: '工作日 18:00',
+        schedule: '工作日 3:00',
         market: '美股',
         data: rsiData,
         monitoring: {
           enabled: true,
           job_name: SchedulerService.generateJobName(EJobType.DAY_RSI_WATCH, EMarketType.US),
-          cron_description: SchedulerService.getCronDescription('0 18 * * 1-5')
+          cron_description: SchedulerService.getCronDescription('0 3 * * 1-5')
         }
       });
 
