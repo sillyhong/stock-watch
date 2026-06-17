@@ -19,3 +19,6 @@ sleep 5
  #主张段
  curl http://localhost:3008/api/day-rise/a
  curl http://localhost:3008/api/day-rise/us
+ #研报
+ curl http://localhost:3008/api/nash-ai/daily
+ 
