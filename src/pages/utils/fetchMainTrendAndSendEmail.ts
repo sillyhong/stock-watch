@@ -59,6 +59,33 @@ function getMarketName(marketType: EStockType): string {
   return marketNames[marketType] || '未知市场';
 }
 
+function getEastmoneyMarketPrefix(stockType: EStockType, stockCode: string): string {
+  if (stockType === EStockType.HK) {
+    return 'hk/';
+  }
+
+  if (stockType === EStockType.US) {
+    return 'us/';
+  }
+
+  const pureStockCode = stockCode.includes('.') ? stockCode.split('.').pop() || stockCode : stockCode;
+  if (pureStockCode.startsWith('6')) {
+    return 'sh';
+  }
+
+  return 'sz';
+}
+
+function getPureStockCode(stockCode: string): string {
+  return stockCode.includes('.') ? stockCode.split('.').pop() || stockCode : stockCode;
+}
+
+function generateStockLink(stockCode: string, stockType: EStockType): string {
+  const pureStockCode = getPureStockCode(stockCode);
+  const marketPrefix = getEastmoneyMarketPrefix(stockType, stockCode);
+  return `https://quote.eastmoney.com/${marketPrefix}${pureStockCode}.html?from=classic#fullScreenChart`;
+}
+
 /**
  * 生成主涨段邮件HTML内容
  * @param mainTrendList 主涨段股票列表
@@ -73,11 +100,17 @@ function generateMainTrendEmailHtml(
 ): string {
   const marketName = getMarketName(config.marketType);
   // 表格行
-  const tableRows = mainTrendList.map((stock, index) => `
+  const tableRows = mainTrendList.map((stock, index) => {
+    const stockLink = generateStockLink(stock.stockCode, config.marketType);
+    const pureStockCode = getPureStockCode(stock.stockCode);
+
+    return `
     <tr style="background-color: ${index % 2 === 0 ? '#f9f9f9' : '#ffffff'};">
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd;">${index + 1}</td>
-      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-weight: bold;">${stock.stockName}</td>
-      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; color: #666;">${stock.stockCode}</td>
+      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-weight: bold;">
+        <a href="${stockLink}" style="color: #2f855a; text-decoration: none; font-weight: bold;">${stock.stockName}</a>
+      </td>
+      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; color: #666;">${pureStockCode}</td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; color: #e74c3c; font-weight: bold;">¥${stock.currentPrice.toFixed(2)}</td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd;">${stock.macdGoldenCross ? '✅' : '❌'}</td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-size: 12px;">
@@ -93,7 +126,8 @@ function generateMainTrendEmailHtml(
         中轨: ${typeof stock.bollMid === 'number' ? stock.bollMid.toFixed(2) : stock.bollMid}
       </td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   return `
 <!DOCTYPE html>
