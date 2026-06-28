@@ -7,6 +7,8 @@ import { a_shangyebaihuo } from "../data/astock/shangyebaihuo"
 import { a_xiaofeidianzi, a_xiaofeidianzi_futu_token } from "../data/astock/xiaofeidanzi"
 import { a_zhishu } from "../data/astock/zhishu"
 import { EKLT, EStockType } from "../interface"
+import { a_MLCC } from "../data/astock/MLCC"
+import { a_boliboxian } from "../data/astock/boliboxian"
 
 
 // 自选股 https://quote.eastmoney.com/zixuan/?from=home  (https://myfavor.eastmoney.com/v4/webouter/gstkinfos?appkey=e9166c7e9cdfad3aa3fd7d93b757e9b1&cb=jQuery37109098349407811925_1738471725338&g=1&_=1738471725340)
@@ -76,7 +78,7 @@ export const EasyStockLists = {
     [EStockType.US]: USStockList,
   },
   [EKLT["DAY"]] : {
-    [EStockType.A]: [...AStockList, ...a_bantaoti, ...a_cpo],
+    [EStockType.A]: [...AStockList, ...a_bantaoti, ...a_cpo, ...a_MLCC,],
     [EStockType.HK]: HKStockList,
     [EStockType.US]: USStockList,
   },

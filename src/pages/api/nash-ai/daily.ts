@@ -114,12 +114,13 @@ function normalizeText(value: string | null | undefined): string {
 
 function buildDomesticRows(records: INashAiRecord[]): string {
   if (!records.length) {
-    return '<tr><td colspan="3" class="empty-row">暂无国内研报</td></tr>';
+    return '<tr><td colspan="4" class="empty-row">暂无国内研报</td></tr>';
   }
 
   return records
     .map((record) => `
       <tr>
+        <td>${normalizeText(record.securities)}</td>
         <td>${normalizeText(record.title)}</td>
         <td>${normalizeText(record.stockCode)}</td>
         <td>${normalizeText(record.stockName)}</td>
@@ -310,9 +311,10 @@ function generateDailyEmailHtml(payload: IDailyEmailPayload): string {
       <table>
         <thead>
           <tr>
-            <th style="width: 58%;">标题</th>
-            <th style="width: 18%;">股票代码</th>
-            <th style="width: 24%;">股票名称</th>
+            <th style="width: 18%;">机构</th>
+            <th style="width: 44%;">标题</th>
+            <th style="width: 16%;">股票代码</th>
+            <th style="width: 22%;">股票名称</th>
           </tr>
         </thead>
         <tbody>
