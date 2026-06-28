@@ -19,6 +19,7 @@ import {
   randomFromArray,
   randomIP,
 } from './header';
+import { calculateChipConcentrationDetails } from './config';
 import { a_beijiaosuo_cn } from '../data/astock/beijiaosuo';
 import { EStockType } from '../interface';
 
@@ -47,6 +48,11 @@ export interface IMainTrendResult {
   bollMid: number | string;
   bollCurrent: number | string;
   bollDescription: string;
+
+  // 日筹码集中度
+  dailyChipConcentration: number | string;
+  dailyChipConcentrationIncreasing: boolean;
+  dailyChipConcentrationTrend: number[];
   
   // 综合判断
   isMainTrend: boolean;
@@ -337,6 +343,39 @@ async function checkBoll(secid: string, klt: number, lmt: number, fqt: number) {
   }
 }
 
+async function checkDailyChipConcentration(secid: string, lmt: number = 320, fqt: number = 1) {
+  try {
+    const sourceData = await fetchStockData(secid, 101, lmt, fqt);
+
+    if (!sourceData || !sourceData.klines) {
+      return {
+        isIncreasing: false,
+        latestConcentration: '--' as number | string,
+        concentrationTrend: [] as number[],
+      };
+    }
+
+    const formattedData = formatKlinesData(sourceData);
+    const { isIncreasing, latestConcentration, concentrationTrend } = calculateChipConcentrationDetails(formattedData);
+
+    return {
+      isIncreasing,
+      latestConcentration: latestConcentration == null ? '--' : latestConcentration,
+      concentrationTrend,
+    };
+  } catch (error) {
+    console.error('检查日筹码集中度失败:', error);
+    if (isEastmoneyCircuitBreakError(error)) {
+      throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
+    }
+    return {
+      isIncreasing: false,
+      latestConcentration: '--' as number | string,
+      concentrationTrend: [] as number[],
+    };
+  }
+}
+
 /**
  * 格式化股票名称（添加特殊标识）
  * @param stockName 原始股票名称
@@ -402,6 +441,10 @@ export async function detectMainTrend(
     bollMid: '--',
     bollCurrent: '--',
     bollDescription: finalConfig.boll.description,
+
+    dailyChipConcentration: '--',
+    dailyChipConcentrationIncreasing: false,
+    dailyChipConcentrationTrend: [],
     
     isMainTrend: false,
     configName: finalConfig.name
@@ -468,6 +511,15 @@ export async function detectMainTrend(
   result.aboveBollMid = bollResult.isAbove;
   result.bollMid = bollResult.mid;
   result.bollCurrent = bollResult.current;
+
+  const chipResult = await checkDailyChipConcentration(
+    secid,
+    finalConfig.ma.klt === 101 ? finalConfig.ma.lmt : 320,
+    finalConfig.ma.fqt
+  );
+  result.dailyChipConcentrationIncreasing = chipResult.isIncreasing;
+  result.dailyChipConcentration = chipResult.latestConcentration;
+  result.dailyChipConcentrationTrend = chipResult.concentrationTrend;
   
   // console.log(`条件3结果: ${bollResult.isAbove ? '✓ 符合' : '✗ 不符合'} (价格=${bollResult.current}, BOLL中轨=${bollResult.mid})`);
   

@@ -99,6 +99,18 @@ function generateMainTrendEmailHtml(
   config: IMainTrendConditionConfig
 ): string {
   const marketName = getMarketName(config.marketType);
+  const formatDailyChipConcentration = (stock: IMainTrendResult) => {
+    if (!stock.dailyChipConcentrationTrend.length) {
+      return '--';
+    }
+
+    const trendValues = stock.dailyChipConcentrationTrend
+      .map((value) => `${value.toFixed(2)}%`)
+      .join(' → ');
+    const trendIcon = stock.dailyChipConcentrationIncreasing ? ' 💹' : ' ⬇️';
+    return `${trendValues}${trendIcon}`;
+  };
+
   // 表格行
   const tableRows = mainTrendList.map((stock, index) => {
     const stockLink = generateStockLink(stock.stockCode, config.marketType);
@@ -112,6 +124,12 @@ function generateMainTrendEmailHtml(
       </td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; color: #666;">${pureStockCode}</td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; color: #e74c3c; font-weight: bold;">¥${stock.currentPrice.toFixed(2)}</td>
+      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-size: 12px;">
+        中轨: ${typeof stock.bollMid === 'number' ? stock.bollMid.toFixed(2) : stock.bollMid}
+      </td>
+      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-size: 12px;">
+        ${formatDailyChipConcentration(stock)}
+      </td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd;">${stock.macdGoldenCross ? '✅' : '❌'}</td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-size: 12px;">
         DIFF: ${typeof stock.macdDiff === 'number' ? stock.macdDiff.toFixed(2) : stock.macdDiff}<br>
@@ -122,9 +140,6 @@ function generateMainTrendEmailHtml(
         ${typeof stock.maValue === 'number' ? stock.maValue.toFixed(2) : stock.maValue}
       </td>
       <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd;">${stock.aboveBollMid ? '✅' : '❌'}</td>
-      <td style="padding: 12px; text-align: center; border-bottom: 1px solid #ddd; font-size: 12px;">
-        中轨: ${typeof stock.bollMid === 'number' ? stock.bollMid.toFixed(2) : stock.bollMid}
-      </td>
     </tr>
   `;
   }).join('');
@@ -274,12 +289,13 @@ function generateMainTrendEmailHtml(
           <th>股票名称</th>
           <th>股票代码</th>
           <th>当前价格</th>
+          <th>BOLL中轨</th>
+          <th>日筹码</th>
           <th>MACD</th>
           <th>MACD值</th>
           <th>MA</th>
           <th>MA值</th>
-          <th>BOLL</th>
-          <th style="border-top-right-radius: 6px;">BOLL中轨</th>
+          <th style="border-top-right-radius: 6px;">BOLL</th>
         </tr>
       </thead>
       <tbody>

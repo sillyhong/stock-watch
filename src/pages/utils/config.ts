@@ -444,7 +444,11 @@ export const processFutuData = (eastmoneyData: unknown, stockLists: (string | IF
  * @param RSIData RSI数据
  * @returns 是否筹码集中度上升
  */
-export const calculateChipConcentration = (RSIData: IRSICalculationData): boolean => {
+export const calculateChipConcentrationDetails = (RSIData: IRSICalculationData): {
+  isIncreasing: boolean;
+  latestConcentration: number | null;
+  concentrationTrend: number[];
+} => {
   try {
     // 使用深拷贝避免修改原数据，修复构造函数参数
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -465,12 +469,25 @@ export const calculateChipConcentration = (RSIData: IRSICalculationData): boolea
     const dayBeforeConcentration = (dayBeforeResult?.percentChips?.['90']?.concentration ?? 0) * 100;
 
     // 判断是否连续上升
-    return todayConcentration >= yesterdayConcentration && 
-           yesterdayConcentration >= dayBeforeConcentration;
+    return {
+      isIncreasing: todayConcentration >= yesterdayConcentration &&
+        yesterdayConcentration >= dayBeforeConcentration,
+      latestConcentration: Number.isFinite(todayConcentration) ? todayConcentration : null,
+      concentrationTrend: [dayBeforeConcentration, yesterdayConcentration, todayConcentration]
+        .filter((value) => Number.isFinite(value)),
+    };
   } catch (error) {
     console.warn('筹码集中度计算失败:', error);
-    return false;
+    return {
+      isIncreasing: false,
+      latestConcentration: null,
+      concentrationTrend: [],
+    };
   }
+};
+
+export const calculateChipConcentration = (RSIData: IRSICalculationData): boolean => {
+  return calculateChipConcentrationDetails(RSIData).isIncreasing;
 };
 
 /**
