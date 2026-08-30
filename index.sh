@@ -21,4 +21,5 @@ sleep 5
  curl http://localhost:3008/api/day-rise/us
  #研报
  curl http://localhost:3008/api/nash-ai/daily
- 
+ #路透
+ curl http://localhost:3008/api/reuters
