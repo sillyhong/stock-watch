@@ -28,7 +28,7 @@ let ATask: cron.ScheduledTask | null;
 // 美股配置：
 //   - MainTrendConfigs.US_DAY_MAIN_TREND    - 美股日线主涨段
 //   - MainTrendConfigs.US_MIN_60_MAIN_TREND - 美股60分钟主涨段
-const MAIN_TREND_CONFIG: IMainTrendConditionConfig = MainTrendConfigs.A_DAY_MAIN_TREND;
+const MAIN_TREND_CONFIG: IMainTrendConditionConfig = MainTrendConfigs.A_MIN_60_MAIN_TREND;
 
 /**
  * 定时器执行函数 - A股主涨段监控

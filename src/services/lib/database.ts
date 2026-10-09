@@ -8,14 +8,6 @@ const {
   MYSQL_USER = 'root',
   MYSQL_PASSWORD = 'Asd123456!',
 } = process.env;
-console.log("🚀 ~ MYSQL_HOST123",
-  MYSQL_HOST,
-  MYSQL_PORT,
-  MYSQL_DATABASE,
-  MYSQL_USER ,
-  MYSQL_PASSWORD,
- )
-
 const sequelize = new Sequelize(
   MYSQL_DATABASE,
   MYSQL_USER,

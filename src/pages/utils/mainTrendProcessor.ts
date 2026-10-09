@@ -9,15 +9,9 @@ import {
   getKlineTypeDescription 
 } from './mainTrendConfig';
 import {
-  ACCEPT_LANGUAGES,
-  ACCEPTS,
-  COOKIES,
-  REFERERS,
   getRandomUserAgent,
   getRandomUserToken,
   randomDelay,
-  randomFromArray,
-  randomIP,
 } from './header';
 import { calculateChipConcentrationDetails } from './config';
 import { a_beijiaosuo_cn } from '../data/astock/beijiaosuo';
@@ -62,17 +56,33 @@ export interface IMainTrendResult {
 }
 
 const EASTMONEY_CIRCUIT_BREAK_ERROR = 'EASTMONEY_CIRCUIT_BREAK';
-let eastmoneyCircuitOpen = false;
+const EASTMONEY_SESSION_URL = 'https://quote.eastmoney.com/';
+const EASTMONEY_COOLDOWN_MS = 60_000;
+const EASTMONEY_REQUEST_TIMEOUT_MS = 8_000;
+const EASTMONEY_RETRY_DELAY_MS = [800, 1_600];
+const EASTMONEY_COOKIE_TTL_MS = 10 * 60 * 1000;
+const EASTMONEY_BROWSER_TIMEOUT_MS = 20_000;
+
+let eastmoneyCircuitOpenUntil = 0;
+let eastmoneyCookie = process.env.EASTMONEY_COOKIE || '';
+let eastmoneyCookieRefreshedAt = eastmoneyCookie ? Date.now() : 0;
+let eastmoneyUserAgent = getRandomUserAgent();
+let eastmoneyCookieRefreshPromise: Promise<void> | null = null;
 
 function resetEastmoneyCircuit() {
-  eastmoneyCircuitOpen = false;
+  eastmoneyCircuitOpenUntil = 0;
 }
 
 function openEastmoneyCircuit() {
-  eastmoneyCircuitOpen = true;
+  eastmoneyCircuitOpenUntil = Date.now() + EASTMONEY_COOLDOWN_MS;
+}
+
+function isEastmoneyCircuitOpen() {
+  return eastmoneyCircuitOpenUntil > Date.now();
 }
 
 function isEastmoneyCircuitBreakError(error: unknown): boolean {
+  const status = axios.isAxiosError(error) ? error.response?.status : undefined;
   const errorText = [
     error instanceof Error ? error.message : '',
     typeof error === 'string' ? error : '',
@@ -83,30 +93,192 @@ function isEastmoneyCircuitBreakError(error: unknown): boolean {
   return (
     errorText.includes(EASTMONEY_CIRCUIT_BREAK_ERROR) ||
     errorText.includes('socket hang up') ||
-    errorText.includes('ECONNRESET')
+    errorText.includes('ECONNRESET') ||
+    errorText.includes('ECONNABORTED') ||
+    errorText.includes('ETIMEDOUT') ||
+    errorText.includes('ERR_EMPTY_RESPONSE') ||
+    status === 401 ||
+    status === 403 ||
+    status === 408 ||
+    status === 429 ||
+    (typeof status === 'number' && status >= 500)
   );
 }
 
-function buildEastmoneyHeaders() {
-  return {
-    'User-Agent': getRandomUserAgent(),
-    'Accept': randomFromArray(ACCEPTS),
-    'Accept-Language': randomFromArray(ACCEPT_LANGUAGES),
+function buildEastmoneyHeaders(cookie: string = '', userAgent: string = getRandomUserAgent()) {
+  const headers: Record<string, string> = {
+    'User-Agent': userAgent,
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
     'Accept-Encoding': 'gzip, deflate, br',
     'Cache-Control': 'no-cache',
     'Pragma': 'no-cache',
     'Origin': 'https://quote.eastmoney.com',
-    'Referer': randomFromArray(REFERERS),
-    'Connection': 'keep-alive',
-    // cookie引起的socket hang up
-    // 'Cookie': randomFromArray(COOKIES),
-    'Cookie': 'qgqp_b_id=b898f5e6ae213256636d2ac010423889; st_nvi=T8VaEUWdkb_sskT2hfMVzadd2; quote_lt=1; nid18=0f38fc1a4d417dd2a32a0335f8de07eb; nid18_create_time=1774771880634; gviem=u91aImC1GZZFwv7Anax-va67a; gviem_create_time=1774771880634; emshistory=%5B%22000725%22%2C%22%E5%B8%9D%E7%A7%91%E8%82%A1%E4%BB%BD%22%5D; mtp=1; ct=FTL0qafJAyvTd7cLLCw2yGK7xK36FhHbA5IpNz66TbjbrD0HmbWxMYzIKIoUhdbuY9fR2w16MMx-7bnxa_GvTnqEGJLSnNgng0Co4SK-R9TgqgeSV3INAJQHSCEyfQc_6vFOYLzWYVX2_ECIXeX19UtVACmho9Jq_xWdDdEzhO8; ut=FobyicMgeV4zP63_B6e5XMcasMYUTUdXFriGH84GknZuJwoBF4JKaI0OXzKaSOdteSdXV7ZEKyHH5jefGM8OBnWYuR-EbeuDPWkiRaHqZxUvkXKpzfU7WSMdtXBzA36O1loBJ-z3AwWeB3S1la9fnS7efa-kULdG21wN6qMzhLyjsAS3NReFLzbsnJ_5k2PzNmQVfKLEMQayrbJyibVC3DheLLvguKdsDojDMU1UCG818rUFoTkDzXNgyQUoOPc50iR5bjP2CWVh6z9i20e9jMWQsq_Ymv7URFUtdnWjt9FXGKjxDjvPuRCacBZ1JfDp7WoVMgqzTBsedh6GhW2TYbkiY2g2PLpAGN2gabI9fY0yfYG_ptGCaF4otdGGW2zmz6DXpszm9crCJzBOnkp_uEbyvx-2ShzoW42jC221cLM4yEfvpyPL4har8_JkOAzXTEc6boM4n7QDlTY7D3gxta5RQogCQqalK531DI0WlXE4on6h20G6ydDqHTOPOOhLpgc4KWVzGEQ; pi=1181325662278720%3Ba1181325662278720%3B%E9%87%91%E5%8F%89%E9%A9%BE55%E7%BA%BF%3BG9LXinD5cq0tMk4YHqvW7rW6rOTW9RM1MNpN%2BybYIGDs3TA1F0bRlnXfWwO2vJqwPoP9SA%2FbAEgJ6pjO3AxYeqv8FJ2rQIzRzImpUNEahBx7lCkHBud%2FpOM5z%2FjYG0A44U3dmASZ7UtFrVka2QW34nxh%2BumYx0Nc6C3vkZZim%2BmjfKfIEvYkZMAPiQQVmU%2BuldRrGhmQ%3BG7DHaR3t8WX0MHiPoUkRkOgscHc3shcAtt91lqXPUTvCJ1BeOhnB6wsKdnCoEb9GfAKe8qILfKHWcTSDJSiuBJeD4XLtHUOsO%2BPUB%2F5zdCZCSj5RPJBzTzaVAipKAmbQrD1A3KJUwwYu9RJQ06b%2FmS7XCyA%2B4Q%3D%3D; uidal=1181325662278720%e9%87%91%e5%8f%89%e9%a9%be55%e7%ba%bf; sid=138013372; vtpst=|; st_si=81781159463632; st_pvi=01848825546785; st_sp=2026-01-14%2017%3A24%3A13; st_inirUrl=https%3A%2F%2Fwx.mail.qq.com%2F; st_sn=1; st_psi=20260616165156921-111000300841-7981005574; st_asi=delete; fullscreengg=1; fullscreengg2=1; wsc_checkuser_ok=1',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-site',
-    'X-Forwarded-For': randomIP(),
-    'X-Real-IP': randomIP(),
+    'Referer': 'https://quote.eastmoney.com/',
   };
+  if (cookie) headers.Cookie = cookie;
+  return headers;
+}
+
+function getEastmoneyErrorSummary(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    const status = error.response?.status ? ` status=${error.response.status}` : '';
+    return `${error.code || 'AXIOS_ERROR'}${status}: ${error.message}`;
+  }
+  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+}
+
+function getEastmoneyBrowserPath(): string {
+  const configuredPath = process.env.EASTMONEY_BROWSER_PATH;
+  if (configuredPath) return configuredPath;
+
+  return process.platform === 'darwin'
+    ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    : '/usr/bin/google-chrome';
+}
+
+async function getEastmoneyBrowserSession(): Promise<{
+  cookie: string;
+  userAgent: string;
+}> {
+  const executablePath = getEastmoneyBrowserPath();
+  if (!executablePath) {
+    throw new Error('EASTMONEY_BROWSER_NOT_FOUND: set EASTMONEY_BROWSER_PATH');
+  }
+
+  const { chromium } = await import(/* webpackIgnore: true */ 'playwright-core');
+  const userAgent = getRandomUserAgent();
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
+
+  try {
+    const context = await browser.newContext({
+      locale: 'zh-CN',
+      userAgent,
+      viewport: { width: 1440, height: 900 },
+    });
+    const page = await context.newPage();
+
+    await page.goto(EASTMONEY_SESSION_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: EASTMONEY_BROWSER_TIMEOUT_MS,
+    });
+    await page.waitForTimeout(3_000);
+
+    const cookies = await context.cookies();
+    return {
+      cookie: cookies
+        .filter((cookie) => cookie.domain.includes('eastmoney.com'))
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join('; '),
+      userAgent,
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+async function refreshEastmoneySession(): Promise<void> {
+  if (eastmoneyCookieRefreshPromise) return eastmoneyCookieRefreshPromise;
+
+  eastmoneyCookieRefreshPromise = (async () => {
+    try {
+      const session = await getEastmoneyBrowserSession();
+      if (!session.cookie) throw new Error('EASTMONEY_COOKIE_EMPTY');
+      eastmoneyCookie = session.cookie;
+      eastmoneyUserAgent = session.userAgent;
+      eastmoneyCookieRefreshedAt = Date.now();
+    } catch (error) {
+      console.warn('真实浏览器 Cookie 获取失败:', getEastmoneyErrorSummary(error));
+      eastmoneyCookie = '';
+      eastmoneyCookieRefreshedAt = 0;
+    }
+  })().finally(() => {
+    eastmoneyCookieRefreshPromise = null;
+  });
+
+  return eastmoneyCookieRefreshPromise;
+}
+
+async function requestEastmoneyKlineInBrowser(url: string): Promise<{
+  data: unknown;
+  cookie: string;
+  userAgent: string;
+}> {
+  const executablePath = getEastmoneyBrowserPath();
+  const { chromium } = await import(/* webpackIgnore: true */ 'playwright-core');
+  const userAgent = getRandomUserAgent();
+  const browser = await chromium.launch({
+    headless: true,
+    executablePath,
+    args: ['--no-sandbox', '--disable-dev-shm-usage'],
+  });
+
+  try {
+    const context = await browser.newContext({
+      locale: 'zh-CN',
+      userAgent,
+      viewport: { width: 1440, height: 900 },
+    });
+    const page = await context.newPage();
+    await page.goto(EASTMONEY_SESSION_URL, {
+      waitUntil: 'domcontentloaded',
+      timeout: EASTMONEY_BROWSER_TIMEOUT_MS,
+    });
+    await page.waitForTimeout(3_000);
+
+    const result = await page.evaluate(async (targetUrl) => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 8_000);
+      try {
+        const response = await fetch(targetUrl, {
+          credentials: 'include',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        return {
+          ok: response.ok,
+          status: response.status,
+          text: await response.text(),
+        };
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }, url);
+
+    if (!result.ok) {
+      throw new Error(`EASTMONEY_BROWSER_HTTP_${result.status}`);
+    }
+
+    return {
+      data: JSON.parse(result.text),
+      cookie: (await context.cookies())
+        .filter((cookie) => cookie.domain.includes('eastmoney.com'))
+        .map((cookie) => `${cookie.name}=${cookie.value}`)
+        .join('; '),
+      userAgent,
+    };
+  } finally {
+    await browser.close();
+  }
+}
+
+async function requestEastmoneyKline(url: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), EASTMONEY_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await axios.get(url, {
+      timeout: EASTMONEY_REQUEST_TIMEOUT_MS,
+      signal: controller.signal,
+      headers: buildEastmoneyHeaders(eastmoneyCookie, eastmoneyUserAgent),
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 /**
@@ -122,7 +294,7 @@ async function fetchStockData(
   lmt: number,
   fqt: number = 1
 ) {
-  if (eastmoneyCircuitOpen) {
+  if (isEastmoneyCircuitOpen()) {
     throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
   }
 
@@ -132,18 +304,44 @@ async function fetchStockData(
   const userToken = getRandomUserToken();
   const requestTs = Date.now();
   const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&ut=${userToken}&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=${klt}&fqt=${fqt}&end=${endDate}&lmt=${lmt}&_=${requestTs}`;
-  const headers = buildEastmoneyHeaders()
-  
+
   try {
-    const response = await axios.get(url, {
-      timeout: 8000,
-      headers,
-    });
-    
-    return response?.data?.data;
+    if (!eastmoneyCookie || Date.now() - eastmoneyCookieRefreshedAt > EASTMONEY_COOKIE_TTL_MS) {
+      await refreshEastmoneySession();
+    }
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        const response = await requestEastmoneyKline(url);
+        resetEastmoneyCircuit();
+        return response?.data?.data;
+      } catch (error) {
+        lastError = error;
+        if (attempt === 0 && isEastmoneyCircuitBreakError(error)) {
+          eastmoneyCookie = '';
+          await refreshEastmoneySession();
+          await randomDelay(EASTMONEY_RETRY_DELAY_MS[0], EASTMONEY_RETRY_DELAY_MS[1]);
+          try {
+            const browserResponse = await requestEastmoneyKlineInBrowser(url);
+            if (!browserResponse.cookie) throw new Error('EASTMONEY_COOKIE_EMPTY');
+            eastmoneyCookie = browserResponse.cookie;
+            eastmoneyUserAgent = browserResponse.userAgent;
+            eastmoneyCookieRefreshedAt = Date.now();
+            resetEastmoneyCircuit();
+            return (browserResponse.data as { data?: unknown } | null)?.data;
+          } catch (browserError) {
+            lastError = browserError;
+            continue;
+          }
+        }
+        break;
+      }
+    }
+
+    throw lastError;
   } catch (error) {
-    const errorJSON = JSON.stringify(error);
-    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}),url=${url}:`, errorJSON.substring(0, 200), 'headers', headers);
+    console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}):`, getEastmoneyErrorSummary(error));
     if (isEastmoneyCircuitBreakError(error)) {
       openEastmoneyCircuit();
       throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
@@ -562,7 +760,7 @@ export async function detectMainTrendBatch(
   // 限流后要立即熔断，使用单只串行执行避免继续放大请求
   const batchSize = 8;
   for (let i = 0; i < stocks.length; i += batchSize) {
-    if (eastmoneyCircuitOpen) {
+    if (isEastmoneyCircuitOpen()) {
       console.warn('东方财富请求已熔断，停止后续主涨段检测');
       break;
     }

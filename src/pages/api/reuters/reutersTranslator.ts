@@ -5,18 +5,25 @@ const GOOGLE_TRANSLATE_URL = 'https://translate.googleapis.com/translate_a/singl
 const MYMEMORY_TRANSLATE_URL = 'https://api.mymemory.translated.net/get';
 const TRANSLATE_TIMEOUT_MS = 15000;
 const TRANSLATE_CONCURRENCY = 4;
-const BLOCK_ABORT_THRESHOLD = 2;
+const REPEATED_ERROR_ABORT_THRESHOLD = 2;
 
-class TranslationBlockedAbortError extends Error {
+class TranslationAbortError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'TranslationBlockedAbortError';
+    this.name = 'TranslationAbortError';
   }
 }
 
-interface ITranslationBlockTracker {
+type TranslationProvider = 'primary' | 'fallback';
+
+interface ITranslationErrorSequence {
+  fingerprint: string;
+  count: number;
+}
+
+interface ITranslationErrorTracker {
   aborted: boolean;
-  consecutiveBlocks: number;
+  errorSequences: Record<TranslationProvider, ITranslationErrorSequence | null>;
 }
 
 function createEmptyEntriesByRegion(): IReutersEntriesByRegion {
@@ -31,37 +38,51 @@ function isBlockedHtml(payload: unknown): boolean {
   return typeof payload === 'string' && /<html|Sorry\.\.\.|automated queries/i.test(payload);
 }
 
-function isBlockedError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error);
-  return /blocked|challenge|captcha|interstitial|automated queries/i.test(message);
+function getErrorFingerprint(error: unknown): string {
+  if (axios.isAxiosError(error)) {
+    return `axios:${error.code || 'unknown'}:${error.response?.status || 'unknown'}:${error.message}`;
+  }
+
+  if (error instanceof Error) {
+    return `${error.name}:${error.message}`;
+  }
+
+  return String(error);
 }
 
-function createBlockTracker(): ITranslationBlockTracker {
+function createTranslationErrorTracker(): ITranslationErrorTracker {
   return {
     aborted: false,
-    consecutiveBlocks: 0,
+    errorSequences: {
+      primary: null,
+      fallback: null,
+    },
   };
 }
 
-function markTranslateAttemptSuccess(tracker: ITranslationBlockTracker): void {
-  tracker.consecutiveBlocks = 0;
+function markTranslateAttemptSuccess(tracker: ITranslationErrorTracker, provider: TranslationProvider): void {
+  tracker.errorSequences[provider] = null;
 }
 
-function handleTranslateAttemptError(tracker: ITranslationBlockTracker, error: unknown): void {
+function recordTranslateAttemptError(
+  tracker: ITranslationErrorTracker,
+  provider: TranslationProvider,
+  error: unknown
+): number {
   if (tracker.aborted) {
-    throw new TranslationBlockedAbortError('Translation aborted after consecutive block responses');
+    throw new TranslationAbortError('Translation aborted after repeated identical errors');
   }
 
-  if (isBlockedError(error)) {
-    tracker.consecutiveBlocks += 1;
-    if (tracker.consecutiveBlocks >= BLOCK_ABORT_THRESHOLD) {
-      tracker.aborted = true;
-      throw new TranslationBlockedAbortError('Translation aborted after consecutive block responses');
-    }
-    return;
+  const fingerprint = getErrorFingerprint(error);
+  const previous = tracker.errorSequences[provider];
+  const count = previous?.fingerprint === fingerprint ? previous.count + 1 : 1;
+  tracker.errorSequences[provider] = { fingerprint, count };
+
+  if (count >= REPEATED_ERROR_ABORT_THRESHOLD) {
+    tracker.aborted = true;
   }
 
-  tracker.consecutiveBlocks = 0;
+  return count;
 }
 
 async function translateWithMyMemory(title: string): Promise<string> {
@@ -132,31 +153,37 @@ async function translateWithGoogle(title: string): Promise<string> {
   return translated;
 }
 
-async function translateTitle(title: string, tracker: ITranslationBlockTracker): Promise<string> {
+async function translateTitle(title: string, tracker: ITranslationErrorTracker): Promise<string> {
   if (tracker.aborted) {
-    throw new TranslationBlockedAbortError('Translation aborted after consecutive block responses');
+    throw new TranslationAbortError('Translation aborted after repeated identical errors');
   }
 
   try {
     const translated = await translateWithMyMemory(title);
-    markTranslateAttemptSuccess(tracker);
+    markTranslateAttemptSuccess(tracker, 'primary');
     return translated;
   } catch (primaryError) {
-    handleTranslateAttemptError(tracker, primaryError);
-    console.error('⚠️ Reuters title translate primary failed:', primaryError);
+    const errorCount = recordTranslateAttemptError(tracker, 'primary', primaryError);
+    console.error(`⚠️ Reuters title translate primary failed (same error count=${errorCount}):`, primaryError);
+    if (tracker.aborted) {
+      throw new TranslationAbortError('Translation aborted after repeated identical primary errors');
+    }
   }
 
   if (tracker.aborted) {
-    throw new TranslationBlockedAbortError('Translation aborted after consecutive block responses');
+    throw new TranslationAbortError('Translation aborted after repeated identical errors');
   }
 
   try {
     const translated = await translateWithGoogle(title);
-    markTranslateAttemptSuccess(tracker);
+    markTranslateAttemptSuccess(tracker, 'fallback');
     return translated;
   } catch (fallbackError) {
-    handleTranslateAttemptError(tracker, fallbackError);
-    console.error('⚠️ Reuters title translate fallback failed:', fallbackError);
+    const errorCount = recordTranslateAttemptError(tracker, 'fallback', fallbackError);
+    console.error(`⚠️ Reuters title translate fallback failed (same error count=${errorCount}):`, fallbackError);
+    if (tracker.aborted) {
+      throw new TranslationAbortError('Translation aborted after repeated identical fallback errors');
+    }
     return title;
   }
 }
@@ -165,7 +192,7 @@ async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
   mapper: (item: T, index: number) => Promise<R>,
-  tracker?: ITranslationBlockTracker
+  tracker?: ITranslationErrorTracker
 ): Promise<R[]> {
   if (items.length === 0) {
     return [];
@@ -177,7 +204,7 @@ async function mapWithConcurrency<T, R>(
   async function worker(): Promise<void> {
     while (nextIndex < items.length) {
       if (tracker?.aborted) {
-        throw new TranslationBlockedAbortError('Translation aborted after consecutive block responses');
+        throw new TranslationAbortError('Translation aborted after repeated identical errors');
       }
 
       const currentIndex = nextIndex;
@@ -209,7 +236,7 @@ function buildRawEntriesByRegion(entriesByRegion: IReutersFetchedEntriesByRegion
 
 async function translateRegionTitles(
   entries: IReutersFetchedEntriesByRegion['us'],
-  tracker: ITranslationBlockTracker
+  tracker: ITranslationErrorTracker
 ): Promise<IReutersTitleEntry[]> {
   return mapWithConcurrency(entries, TRANSLATE_CONCURRENCY, async (entry) => {
     const title = entry.title;
@@ -223,7 +250,7 @@ async function translateRegionTitles(
 }
 
 export async function translateReutersTitlesByRegion(entriesByRegion: IReutersFetchedEntriesByRegion): Promise<IReutersEntriesByRegion> {
-  const tracker = createBlockTracker();
+  const tracker = createTranslationErrorTracker();
 
   try {
     const translated = createEmptyEntriesByRegion();
@@ -237,8 +264,8 @@ export async function translateReutersTitlesByRegion(entriesByRegion: IReutersFe
     translated.iran = iran;
     return translated;
   } catch (error) {
-    if (error instanceof TranslationBlockedAbortError) {
-      console.error('⚠️ Reuters translation aborted after consecutive block responses. Fallback to raw titles.');
+    if (error instanceof TranslationAbortError) {
+      console.error('⚠️ Reuters translation aborted after repeated identical errors. Fallback to raw titles.');
       return buildRawEntriesByRegion(entriesByRegion);
     }
 

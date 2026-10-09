@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  pageExtensions: ["ts", "tsx"],
   env: {
     MYSQL_HOST:'43.156.33.21',
     MYSQL_PORT: '3306',
@@ -16,12 +17,23 @@ const nextConfig: NextConfig = {
     '@ant-design/icons-svg',
     '@ant-design/colors',
   ],
-  webpack: (config) => {
+  serverExternalPackages: ['playwright-core', 'node-cron'],
+  webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       'antd/lib': 'antd/es',
       'antd': 'antd/es',
     };
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        child_process: false,
+        dns: false,
+        fs: false,
+        net: false,
+        tls: false,
+      };
+    }
     return config;
   },
   experimental: {

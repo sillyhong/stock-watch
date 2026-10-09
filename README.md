@@ -16,9 +16,35 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Eastmoney browser session
+
+主涨段接口会在服务端启动真实 Chrome/Chromium，访问东方财富页面和 K 线接口，读取浏览器上下文生成 Cookie，再用同一 User-Agent 请求数据。不需要把本机 Chrome 的 Cookie 复制到服务器，也不建议继续写死 Cookie。
+
+服务器需要安装 Chrome/Chromium，并设置可执行文件路径：
+
+```bash
+which google-chrome || which chromium
+export EASTMONEY_BROWSER_PATH=/usr/bin/google-chrome
+npm install
+npm run build
+npm start
+```
+
+如果浏览器路径不是 `/usr/bin/google-chrome`，按 `which` 的实际结果设置 `EASTMONEY_BROWSER_PATH`。`playwright-core` 只负责控制已有浏览器，不会自动下载浏览器。
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## System log cleanup
+
+Node 服务启动时注册系统日志清理任务。任务默认在上海时区每月最后一天 03:00 执行，截断 `/var/log/secure` 和 `/var/log/cron`，保留文件 inode，避免日志进程失去文件句柄。
+
+运行服务的用户需要具备这两个文件的写权限（通常需要 root）。如需关闭任务，设置：
+
+```bash
+export SYSTEM_LOG_CLEANUP_ENABLED=false
+```
 
 ## Learn More
 

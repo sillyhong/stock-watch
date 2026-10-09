@@ -214,6 +214,35 @@ export const MainTrendConfigs = {
     }
   } as IMainTrendConditionConfig,
 
+  /**
+   * 港股30分钟主涨段配置
+   * 条件：日MACD金叉 + 60分钟MA55 + 30分钟BOLL中轨
+   */
+  HK_MIN_30_MAIN_TREND: {
+    name: '港股30分钟主涨段',
+    marketType: EStockType.HK,
+    eltConfig: EKLT['30M'],
+    macd: {
+      klt: EKlineType.DAY,
+      lmt: 255,
+      fqt: 1,
+      description: '日线MACD金叉（DIFF > DEA）'
+    },
+    ma: {
+      klt: EKlineType.MIN_60,
+      period: 55,
+      lmt: 440,
+      fqt: 1,
+      description: '60分钟在MA55上方'
+    },
+    boll: {
+      klt: EKlineType.MIN_30,
+      lmt: 880,
+      fqt: 1,
+      description: '30分钟在BOLL中轨上方'
+    }
+  } as IMainTrendConditionConfig,
+
   // ==================== 美股配置 ====================
   /**
    * 美股日线主涨段配置
@@ -269,6 +298,35 @@ export const MainTrendConfigs = {
       lmt: 440,
       fqt: 1,
       description: '60分钟在BOLL中轨上方'
+    }
+  } as IMainTrendConditionConfig,
+
+  /**
+   * 美股30分钟主涨段配置
+   * 条件：日MACD金叉 + 60分钟MA55 + 30分钟BOLL中轨
+   */
+  US_MIN_30_MAIN_TREND: {
+    name: '美股30分钟主涨段',
+    marketType: EStockType.US,
+    eltConfig: EKLT['30M'],
+    macd: {
+      klt: EKlineType.DAY,
+      lmt: 255,
+      fqt: 1,
+      description: '日线MACD金叉（DIFF > DEA）'
+    },
+    ma: {
+      klt: EKlineType.MIN_60,
+      period: 55,
+      lmt: 440,
+      fqt: 1,
+      description: '60分钟在MA55上方'
+    },
+    boll: {
+      klt: EKlineType.MIN_30,
+      lmt: 880,
+      fqt: 1,
+      description: '30分钟在BOLL中轨上方'
     }
   } as IMainTrendConditionConfig,
 };
