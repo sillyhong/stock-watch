@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import dayjs, { Dayjs } from 'dayjs';
 import { EStockType, EKLT } from './interface';
 import { ERSISuggestion } from './utils/config';
+import { withAppBasePath } from '@/services/appPath';
 
 // 类型定义
 interface RSIDataItem {
@@ -106,7 +107,7 @@ const RSIDashboard: React.FC = () => {
         }),
       });
 
-      const response = await fetch(`/api/rsi/data?${params}`);
+      const response = await fetch(withAppBasePath(`/api/rsi/data?${params}`));
       const result = await response.json();
 
       if (result.success) {
@@ -138,7 +139,7 @@ const RSIDashboard: React.FC = () => {
         }),
       });
 
-      const response = await fetch(`/api/rsi/recommendations?${params}`);
+      const response = await fetch(withAppBasePath(`/api/rsi/recommendations?${params}`));
       const result = await response.json();
 
       if (result.success) {
@@ -157,7 +158,7 @@ const RSIDashboard: React.FC = () => {
   // 获取统计信息
   const fetchStatistics = useCallback(async () => {
     try {
-      const response = await fetch('/api/rsi/statistics');
+      const response = await fetch(withAppBasePath('/api/rsi/statistics'));
       const result = await response.json();
 
       if (result.success) {
@@ -742,7 +743,7 @@ const RSIDashboard: React.FC = () => {
                     onClick={async () => {
                       setLoading(true);
                       try {
-                        const response = await fetch('/api/rsi/success-rate?days=30');
+                        const response = await fetch(withAppBasePath('/api/rsi/success-rate?days=30'));
                         const result = await response.json();
                         if (result.success) {
                           setSuccessRateData(result.data);
@@ -769,7 +770,7 @@ const RSIDashboard: React.FC = () => {
                     onClick={async () => {
                       setLoading(true);
                       try {
-                        const response = await fetch('/api/rsi/trading-points?klt=15&days=7');
+                        const response = await fetch(withAppBasePath('/api/rsi/trading-points?klt=15&days=7'));
                         const result = await response.json();
                         if (result.success) {
                           setTradingPoints(result.data.trading_points);

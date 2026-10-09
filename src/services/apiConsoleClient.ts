@@ -1,5 +1,6 @@
 import type { ApiTaskDefinition } from "@/config/apiCatalog";
 import type { SchedulerTaskState } from "@/services/schedulerRegistry";
+import { withAppBasePath } from "@/services/appPath";
 
 export type ConsoleAction = "immediate" | "start" | "stop";
 
@@ -41,7 +42,7 @@ async function parseResponse(response: Response) {
 }
 
 export async function invokeApiTask(task: ApiTaskDefinition, action: ConsoleAction): Promise<ApiConsoleResult> {
-  const url = new URL(task.endpoint, window.location.origin);
+  const url = new URL(withAppBasePath(task.endpoint), window.location.origin);
   if (action === "immediate") {
     url.searchParams.set("isImmediately", "true");
   }
@@ -83,7 +84,7 @@ export async function invokeApiTask(task: ApiTaskDefinition, action: ConsoleActi
 }
 
 export async function fetchSchedulerStatus() {
-  const response = await fetch("/api/scheduler/status", { cache: "no-store" });
+  const response = await fetch(withAppBasePath("/api/scheduler/status"), { cache: "no-store" });
   const data = (await parseResponse(response)) as {
     success?: boolean;
     data?: { tasks?: SchedulerTaskState[] };
@@ -101,7 +102,7 @@ export async function fetchSchedulerStatus() {
 }
 
 export async function fetchSchedulerStats() {
-  const response = await fetch("/api/scheduler/stats?days=7", { cache: "no-store" });
+  const response = await fetch(withAppBasePath("/api/scheduler/stats?days=7"), { cache: "no-store" });
   const data = (await parseResponse(response)) as {
     success?: boolean;
     data?: { statistics?: { summary?: Record<string, number> } };
@@ -126,7 +127,7 @@ export async function reportSchedulerAction(input: {
   durationMs?: number;
 }) {
   try {
-    await fetch("/api/scheduler/status", {
+    await fetch(withAppBasePath("/api/scheduler/status"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(input),
