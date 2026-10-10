@@ -12,9 +12,7 @@ nvm use 16.18.0
 node --version
 ```
 
-`package.json` 通过 `engines.node` 校验运行时版本，必须使用 `16.18.0`。
-
-注意：当前项目依赖的 `next@15.1.5` 官方要求 Node.js `18.18.0` 或更高版本，和 Node.js `16.18.0` 不兼容。若继续使用 Next.js 15，请将运行时升级到 Node.js `18.18.0+`；若必须锁定 Node.js `16.18.0`，需要同步降级 Next.js 版本。
+`package.json` 通过 `engines.node` 锁定运行时版本。项目依赖已经按 Node.js `16.18.0` 调整：Next.js 13、React 18、ESLint 8 和 Playwright 1.40。
 
 First, run the development server:
 
@@ -39,7 +37,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 ```bash
 which google-chrome || which chromium
 export EASTMONEY_BROWSER_PATH=/usr/bin/google-chrome
-npm install
+ npm ci
 npm run build
 npm start
 ```

@@ -1,4 +1,3 @@
-const CLEANUP_CRON = "0 3 */2 * *";
 const CLEANUP_TIMEZONE = "Asia/Shanghai";
 const CLEANUP_POLL_INTERVAL_MS = 30_000;
 
