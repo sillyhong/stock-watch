@@ -57,7 +57,12 @@ function checkCleanupWindow(): void {
 }
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.NODE_ENV !== "production") return;
+
+  const { startProductionSchedulerBootstrap } = await import(
+    "@/services/productionSchedulerBootstrap"
+  );
+  startProductionSchedulerBootstrap();
 
   if (!globalState.__stockWatchCleanupTimer) {
     // Keep instrumentation free of Node-only dependencies such as node-cron, fs, and path.
