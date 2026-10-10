@@ -5,7 +5,7 @@ import { ERSISuggestion } from '../../pages/utils/config';
 import RSIData from './RSIData';
 
 // RSI分析推荐属性接口
-interface RSIRecommendationAttributes {
+export interface RSIRecommendationAttributes {
   id: number;
   rsi_data_id: number | null; // 关联的RSI原始数据ID
   stock_code: string;
@@ -34,7 +34,7 @@ interface RSIRecommendationAttributes {
 }
 
 // 创建模型时的可选属性
-type RSIRecommendationCreationAttributes = Optional<RSIRecommendationAttributes, 'id' | 'created_at' | 'updated_at' | 'is_processed' | 'analysis_timestamp'>;
+export type RSIRecommendationCreationAttributes = Optional<RSIRecommendationAttributes, 'id' | 'created_at' | 'updated_at' | 'is_processed' | 'analysis_timestamp'>;
 
 // RSI分析推荐模型类
 class RSIRecommendation extends Model<RSIRecommendationAttributes, RSIRecommendationCreationAttributes> implements RSIRecommendationAttributes {

@@ -1,25 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import cron from 'node-cron';
 import isEmpty from "lodash/isEmpty";
-import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
+import { fetchUSRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
 
 export const dynamic = 'force-dynamic';
 
 
-let HTask: cron.ScheduledUSTask;
-let HMorningTask: cron.ScheduledUSTask;
-
+let USTask: cron.ScheduledTask | null = null;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    let rsiData: any
+    let rsiData: unknown;
     const isImmediately = req.query?.isImmediately || false
-    console.log('isEmpty(HTask)',isEmpty(HTask))
-    if (isEmpty(HTask)) {
-      HTask = cron.schedule('05 */15 9-16 * * 1-5', ()=>{
-        fetchHKRSI({
+
+    if (isEmpty(USTask)) {
+      USTask = cron.schedule('*/30 22-23,0-4 * * 1-5', ()=>{
+        fetchUSRSI({
           klt: EKLT['15M'],
           currentDate: dayjs()
         })
@@ -27,28 +25,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-    }
 
-    if(isEmpty(HMorningTask)) {
-      HMorningTask = cron.schedule('05 25 9 * * 1-5', ()=>{
-        fetchHKRSI({
-          klt: EKLT['15M'],
-          currentDate: dayjs()
-        })
-      }, {
-        timezone: "Asia/Shanghai",
-        scheduled: true
-      }); 
+      if(isImmediately) {
+        rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
+      }
     }
-    if(isImmediately) {
-      rsiData = await fetchHKRSI({ klt: EKLT['15M'], sendEmail: false})
-    }
-
-    res.status(200).json({ message: 'Cron job set to check HK RSI every 15 minutes.', data: rsiData });
+    res.status(200).json({ message: 'Cron job set to check US RSI every 30 minutes.',data: rsiData });
   } else if (req.method === 'DELETE') {
-    if (HTask) {
-      HTask.stop();
-      HTask = null;
+    if (USTask) {
+      USTask.stop();
+      USTask = null;
       res.status(200).json({ message: 'Cron job has been stopped.' });
     } else {
       res.status(400).json({ message: 'Cron job is not running.' });

@@ -12,7 +12,7 @@ export enum EReqUrlType {
   "DONG_FANG_CAI_FU" = "DONG_FANG_CAI_FU",
 }
 
-export const MarketType = {
+export const MarketType: Record<number, string> = {
   0: "sz",
   1: "sh",
   105: "us/", // 美股

@@ -1,6 +1,6 @@
 import dayjs from 'dayjs';
 import RSIData from './models/RSIData';
-import RSIRecommendation from './models/RSIRecommendation';
+import RSIRecommendation, { RSIRecommendationCreationAttributes } from './models/RSIRecommendation';
 import { EStockType, EKLT } from '../pages/interface';
 import { ERSISuggestion } from '../pages/utils/config';
 import { Op } from 'sequelize';
@@ -82,9 +82,9 @@ export class RSIAnalysisService {
     if (!signal.action) return null;
     
     if (signal.action === 'buy') {
-      return signal.strength === 'immediate' ? '立即买入🚀' : '建议买入🔥';
+      return signal.strength === 'immediate' ? ERSISuggestion.MUST_BUY : ERSISuggestion.BUY;
     } else {
-      return signal.strength === 'immediate' ? '立即卖出😱' : '建议卖出🚨';
+      return signal.strength === 'immediate' ? ERSISuggestion.MUST_SELL : ERSISuggestion.SELL;
     }
   }
 
@@ -122,24 +122,24 @@ export class RSIAnalysisService {
       });
 
       // 转换为图表数据并标记交易点
-      const chartData: IRSIChartData[] = rsiDataList.map((data: Record<string, unknown>) => {
-        const signal = this.getTradingSignal(data.rsi_value as number);
+      const chartData: IRSIChartData[] = rsiDataList.map((data) => {
+        const signal = this.getTradingSignal(data.rsi_value);
         const chartPoint: IRSIChartData = {
-          timestamp: data.timestamp as Date,
-          rsi_value: data.rsi_value as number,
-          price: data.price as number,
+          timestamp: data.timestamp,
+          rsi_value: data.rsi_value,
+          price: data.price,
         };
 
         // 如果有交易信号，添加交易点
         if (signal.action) {
           const suggestion = this.convertSignalToSuggestion(signal);
           chartPoint.trading_point = {
-            id: data.id as number,
-            stock_code: data.stock_code as string,
-            stock_name: data.stock_name as string,
-            rsi_value: data.rsi_value as number,
-            price: data.price as number,
-            timestamp: data.timestamp as Date,
+            id: data.id,
+            stock_code: data.stock_code,
+            stock_name: data.stock_name,
+            rsi_value: data.rsi_value,
+            price: data.price,
+            timestamp: data.timestamp,
             action: signal.action,
             signal_strength: signal.strength,
             suggestion: suggestion || undefined,
@@ -211,11 +211,11 @@ export class RSIAnalysisService {
   /**
    * 按股票代码分组RSI数据
    */
-  private static groupByStock(rsiDataList: Record<string, unknown>[]): Map<string, Record<string, unknown>[]> {
-    const groups = new Map<string, Record<string, unknown>[]>();
+  private static groupByStock(rsiDataList: RSIData[]): Map<string, RSIData[]> {
+    const groups = new Map<string, RSIData[]>();
     
     rsiDataList.forEach(data => {
-      const stockCode = data.stock_code as string;
+      const stockCode = data.stock_code;
       if (!groups.has(stockCode)) {
         groups.set(stockCode, []);
       }
@@ -228,7 +228,7 @@ export class RSIAnalysisService {
   /**
    * 分析单只股票的成功率
    */
-  private static analyzeStockSuccessRate(stockCode: string, stockData: Record<string, unknown>[]): ISuccessRateAnalysis {
+  private static analyzeStockSuccessRate(stockCode: string, stockData: RSIData[]): ISuccessRateAnalysis {
     const trades: Record<string, unknown>[] = [];
     let buyPosition: Record<string, unknown> | null = null;
 
@@ -346,20 +346,21 @@ export class RSIAnalysisService {
 
       const tradingPoints: ITradingPoint[] = [];
 
-      rsiDataList.forEach((data: Record<string, unknown>) => {
-        const signal = this.getTradingSignal(data.rsi_value as number);
+      rsiDataList.forEach((data) => {
+        const signal = this.getTradingSignal(data.rsi_value);
         if (signal.action) {
           // 获取已存在的推荐（如果有）
-          const existingRecommendation = (data.recommendations as Record<string, unknown>[] || [])[0];
-          const suggestion = existingRecommendation?.suggestion as ERSISuggestion || this.convertSignalToSuggestion(signal);
+          const recommendations = (data as RSIData & { recommendations?: RSIRecommendation[] }).recommendations;
+          const existingRecommendation = recommendations?.[0];
+          const suggestion = existingRecommendation?.suggestion || this.convertSignalToSuggestion(signal);
 
           tradingPoints.push({
-            id: data.id as number,
-            stock_code: data.stock_code as string,
-            stock_name: data.stock_name as string,
-            rsi_value: data.rsi_value as number,
-            price: data.price as number,
-            timestamp: data.timestamp as Date,
+            id: data.id,
+            stock_code: data.stock_code,
+            stock_name: data.stock_name,
+            rsi_value: data.rsi_value,
+            price: data.price,
+            timestamp: data.timestamp,
             action: signal.action,
             signal_strength: signal.strength,
             suggestion: suggestion || undefined,
@@ -411,37 +412,37 @@ export class RSIAnalysisService {
         raw: false,
       });
 
-      const newRecommendations: Record<string, unknown>[] = [];
+      const newRecommendations: RSIRecommendationCreationAttributes[] = [];
 
       for (const data of rsiDataList) {
-        const dataObj = data as Record<string, unknown>;
-        const hasExistingRecommendation = (dataObj.recommendations as Record<string, unknown>[] || []).length > 0;
+        const recommendations = (data as RSIData & { recommendations?: RSIRecommendation[] }).recommendations;
+        const hasExistingRecommendation = (recommendations || []).length > 0;
         
         if (!hasExistingRecommendation) {
-          const signal = this.getTradingSignal(dataObj.rsi_value as number);
+          const signal = this.getTradingSignal(data.rsi_value);
           if (signal.action) {
             const suggestion = this.convertSignalToSuggestion(signal);
             if (suggestion) {
               newRecommendations.push({
-                rsi_data_id: dataObj.id,
-                stock_code: dataObj.stock_code,
-                stock_name: dataObj.stock_name,
-                stock_type: dataObj.stock_type,
-                market: dataObj.market,
-                klt: dataObj.klt,
-                klt_desc: dataObj.klt_desc,
-                rsi_value: dataObj.rsi_value,
+                rsi_data_id: data.id,
+                stock_code: data.stock_code,
+                stock_name: data.stock_name,
+                stock_type: data.stock_type,
+                market: data.market,
+                klt: data.klt,
+                klt_desc: data.klt_desc,
+                rsi_value: data.rsi_value,
                 suggestion: suggestion,
-                price: dataObj.price,
-                price_change: dataObj.price_change,
+                price: data.price,
+                price_change: data.price_change,
                 volume: null, // 原始数据中没有volume字段
-                timestamp: dataObj.timestamp,
-                market_link: dataObj.market_link,
+                timestamp: data.timestamp,
+                market_link: data.market_link,
                 is_chip_increase: false,
                 is_backtest: false,
                 backtest_profit: null,
                 trade_direction: signal.action === 'buy',
-                req_type: dataObj.req_type,
+                req_type: data.req_type,
                 created_date: new Date(),
                 is_processed: false,
               });

@@ -8,11 +8,11 @@ import { EKLT } from '@/pages/interface';
 export const dynamic = 'force-dynamic';
 
 
-let USTask: cron.ScheduledUSTask;
+let USTask: cron.ScheduledTask | null = null;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    let rsiData
+    let rsiData: unknown;
     const isImmediately = req.query?.isImmediately || false
 
     if (isEmpty(USTask)) {

@@ -377,6 +377,8 @@ export class SchedulerService {
     const jobTypeMap = {
       [EJobType.DAY_RSI_WATCH]: 'DAY_RSI',
       [EJobType.BACKTREND_15RSI]: 'BACKTREND_15RSI',
+      [EJobType.BACKTREND_30RSI]: 'BACKTREND_30RSI',
+      [EJobType.BACKTREND_60RSI]: 'BACKTREND_60RSI',
     };
 
     return `${jobTypeMap[jobType]}_${marketType}`;

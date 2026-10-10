@@ -2,11 +2,21 @@ import dayjs from "dayjs"
 import { EKLT } from "../interface"
 import { IFutuStockInfo } from "../interface/futu"
 
+interface EastmoneyKlineData {
+  code?: string;
+  market?: number;
+  name?: string;
+  decimal?: number;
+  dktotal?: number;
+  preKPrice?: number;
+  klines?: string[];
+}
+
 // 格式化东方财富 klines
-export const formatKlinesData = (sourceData) => {
+export const formatKlinesData = (sourceData: EastmoneyKlineData) => {
 
 //所有返回数据对应的数组
-const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
+const sourceDataArray = (sourceData.klines ?? []).map((v: string, index: number) => {
     const tempobj = v.split(',')
     // if(sourceData?.klines?.length -1 === index) {
     //   // f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61
@@ -39,7 +49,7 @@ const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
 
   sourceDataArray.map((v: any, index: number) => { //昨收
     if (index == 0) {
-      v.pre_close = sourceData.preKPrice
+      v.pre_close = sourceData.preKPrice ?? 0
     }
     else {
       v.pre_close = sourceDataArray[index - 1].close
@@ -47,11 +57,11 @@ const sourceDataArray = sourceData?.klines?.map((v: string, index: number) => {
   })
 
   return  {
-    code: sourceData.code,
-    market: sourceData.market,
-    name: sourceData.name,
-    decimal: sourceData.decimal,
-    dktotal: sourceData.dktotal,
+    code: sourceData.code ?? '',
+    market: sourceData.market ?? 0,
+    name: sourceData.name ?? '',
+    decimal: sourceData.decimal ?? 2,
+    dktotal: sourceData.dktotal ?? 0,
     full_klines: sourceDataArray,
     klines: []
   }
@@ -114,11 +124,11 @@ export const formatFutuKlinesData = (
 
      klines = (stockData?.data?.list || [])
     .slice(-60)
-    .map(item => {
+    .map((item: Record<string, unknown> & { k: string | number }) => {
       // 东方财富格式: "2025-05-15 14:45,266.28,265.60,266.28,265.22,3910,103824368.00,0.40,-0.26,-0.68,0.14"
       // 假设item结构: { time, open, close, high, low, volume, turnover, amplitude, change, ratio, turnoverRate }
       // 你需要根据实际返回字段名调整下方属性
-      const t = String(item.k).length === 10 ? item.k * 1000 : item.k;
+      const t = String(item.k).length === 10 ? Number(item.k) * 1000 : item.k;
       const timeStr = dayjs(t).format('YYYY-MM-DD HH:mm');
       // 兼容字段名，部分字段可能不存在
       /* 

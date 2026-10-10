@@ -4,22 +4,23 @@ import isEmpty from "lodash/isEmpty";
 import { fetchHKRSI } from '@/pages/utils/fetchRSIAndSendEmail';
 import dayjs from 'dayjs';
 import { EKLT } from '@/pages/interface';
-import { EReqType } from '@/pages/utils/config';
 
 export const dynamic = 'force-dynamic';
 
 
-let HTask: cron.ScheduledUSTask;
+let HTask: cron.ScheduledTask | null = null;
+// let HMorningTask: cron.ScheduledUSTask;
+
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     let rsiData: any
+    const isImmediately = req.query?.isImmediately || false
     console.log('isEmpty(HTask)',isEmpty(HTask))
     if (isEmpty(HTask)) {
-      HTask = cron.schedule('05 */5 9-16 * * 1-5', ()=>{
+      HTask = cron.schedule('05 */30 10-16 * * 1-5', ()=>{
         fetchHKRSI({
-          reqType: EReqType.EASY_MONEY,
-          klt: EKLT['5M'],
+          klt: EKLT['30M'],
           currentDate: dayjs()
         })
       }, {
@@ -28,7 +29,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    res.status(200).json({ message: `Cron job set to check HK RSI every 5 minutes.`, data: rsiData });
+    // if(isEmpty(HMorningTask)) {
+    //   HMorningTask = cron.schedule('05 25 9 * * 1-5', ()=>{
+    //     fetchHKRSI({
+    //       klt: EKLT['30M'],
+    //       currentDate: dayjs()
+    //     })
+    //   }, {
+    //     timezone: "Asia/Shanghai",
+    //     scheduled: true
+    //   }); 
+    // }
+    if(isImmediately) {
+      rsiData = await fetchHKRSI({ klt: EKLT['30M'], sendEmail: false})
+    }
+
+    res.status(200).json({ message: 'Cron job set to check HK RSI every 30 minutes.', data: rsiData });
   } else if (req.method === 'DELETE') {
     if (HTask) {
       HTask.stop();

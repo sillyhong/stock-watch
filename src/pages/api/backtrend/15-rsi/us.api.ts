@@ -9,7 +9,7 @@ import { EJobType, EMarketType } from '@/services/models/SchedulerLog';
 
 export const dynamic = 'force-dynamic';
 
-let USBacktrendTask: cron.ScheduledUSTask;
+let USBacktrendTask: cron.ScheduledTask | null = null;
 
 // 定时器执行函数（15分钟RSI回测）
 async function executeScheduledUSBacktrendTask(): Promise<unknown[] | null> {
@@ -75,7 +75,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isImmediately = req.query?.isImmediately || false
   
   if (req.method === 'GET') {
-    let rsiData
+    let rsiData: unknown;
     console.log('isEmpty(USBacktrendTask)', isEmpty(USBacktrendTask));
     
     try {

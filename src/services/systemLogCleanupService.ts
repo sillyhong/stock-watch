@@ -38,8 +38,10 @@ function isEnabled(): boolean {
 }
 
 async function loadRuntimeRequire(): Promise<NodeRequire> {
-  const { createRequire } = await import(/* webpackIgnore: true */ "node:module");
-  return createRequire(`${process.cwd()}/package.json`);
+  const nodeModule = await import(/* webpackIgnore: true */ "node:module") as unknown as {
+    createRequire: (filename: string) => NodeRequire;
+  };
+  return nodeModule.createRequire(`${process.cwd()}/package.json`);
 }
 
 async function loadCron(): Promise<CronModule> {

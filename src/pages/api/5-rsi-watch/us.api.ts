@@ -7,30 +7,25 @@ import { EKLT } from '@/pages/interface';
 
 export const dynamic = 'force-dynamic';
 
-
-let USTask: cron.ScheduledUSTask;
+let USTask: cron.ScheduledTask | null = null;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    let rsiData
-    const isImmediately = req.query?.isImmediately || false
+    let rsiData: unknown;
 
     if (isEmpty(USTask)) {
-      USTask = cron.schedule('*/30 22-23,0-4 * * 1-5', ()=>{
+      USTask = cron.schedule('*/5 22-23,0-4 * * 1-5', ()=>{
         fetchUSRSI({
-          klt: EKLT['15M'],
+          klt: EKLT['5M'],
           currentDate: dayjs()
         })
       }, {
         timezone: "Asia/Shanghai",
         scheduled: true
       });
-
-      if(isImmediately) {
-        rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
-      }
+      // rsiData = await fetchUSRSI({ klt: EKLT['5M'], sendEmail: false})
     }
-    res.status(200).json({ message: 'Cron job set to check US RSI every 30 minutes.',data: rsiData });
+    res.status(200).json({ message: 'Cron job set to check US RSI every 5 minutes.',data: rsiData });
   } else if (req.method === 'DELETE') {
     if (USTask) {
       USTask.stop();

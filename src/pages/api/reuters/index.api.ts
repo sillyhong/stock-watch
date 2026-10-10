@@ -4,11 +4,11 @@ import dayjs from 'dayjs';
 import Holidays from 'date-holidays';
 import timezone from 'dayjs/plugin/timezone';
 import utc from 'dayjs/plugin/utc';
-import { buildEmptyFetchedEntriesByRegion, buildEmptyTitlesByRegion, fetchReutersRegion } from './reutersFetcher';
-import { sendReutersIncrementEmail } from './reutersMailer';
-import { computeIncrementalFetchedEntries, computeIncrementalTitles, persistReutersRun, readReutersDailyFile } from './reutersStorage';
-import { IReutersEntriesByRegion, IReutersRunResult } from './types';
-import { translateReutersTitlesByRegion } from './reutersTranslator';
+import { buildEmptyFetchedEntriesByRegion, buildEmptyTitlesByRegion, fetchReutersRegion } from '@/services/reuters/reutersFetcher';
+import { sendReutersIncrementEmail } from '@/services/reuters/reutersMailer';
+import { computeIncrementalFetchedEntries, computeIncrementalTitles, persistReutersRun, readReutersDailyFile } from '@/services/reuters/reutersStorage';
+import { IReutersEntriesByRegion, IReutersRunResult } from '@/services/reuters/types';
+import { translateReutersTitlesByRegion } from '@/services/reuters/reutersTranslator';
 
 export const dynamic = 'force-dynamic';
 

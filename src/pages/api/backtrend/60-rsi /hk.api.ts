@@ -9,7 +9,7 @@ import { EJobType, EMarketType } from '@/services/models/SchedulerLog';
 
 export const dynamic = 'force-dynamic';
 
-let HbacktrendTask: cron.ScheduledUSTask;
+let HbacktrendTask: cron.ScheduledTask | null = null;
 
 // 定时器执行函数（15分钟RSI回测）
 async function executeScheduledHKBacktrendTask(): Promise<unknown[] | null> {
@@ -17,8 +17,8 @@ async function executeScheduledHKBacktrendTask(): Promise<unknown[] | null> {
     jobName: SchedulerService.generateJobName(EJobType.BACKTREND_15RSI, EMarketType.HK),
     jobType: EJobType.BACKTREND_15RSI,
     marketType: EMarketType.HK,
-    apiPath: '/api/backtrend/15-rsi/hk',
-    cronExpression: '3 17 * * 1-5',
+    apiPath: '/api/backtrend/30-rsi/hk',
+    cronExpression: '13 17 * * 1-5',
     isManual: false,
   };
 
@@ -50,8 +50,8 @@ async function executeManualHKBacktrendTask(triggeredBy?: string): Promise<unkno
     jobName: SchedulerService.generateJobName(EJobType.BACKTREND_15RSI, EMarketType.HK),
     jobType: EJobType.BACKTREND_15RSI,
     marketType: EMarketType.HK,
-    apiPath: '/api/backtrend/15-rsi/hk',
-    cronExpression: '3 17 * * 1-5',
+    apiPath: '/api/backtrend/30-rsi/hk',
+    cronExpression: '13 17 * * 1-5',
     isManual: true,
     triggeredBy,
   };
@@ -75,15 +75,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isImmediately = req.query?.isImmediately || false
   
   if (req.method === 'GET') {
-    let rsiData
     console.log('isEmpty(HbacktrendTask)', isEmpty(HbacktrendTask));
-    
+    let rsiData 
     try {
       // 创建定时任务（如果不存在）
       if (isEmpty(HbacktrendTask)) {
         console.log('📅 创建港股15分钟RSI回测定时任务...');
         
-        HbacktrendTask = cron.schedule('3 17 * * 1-5', async () => {
+        HbacktrendTask = cron.schedule('13 17 * * 1-5', async () => {
           try {
             await executeScheduledHKBacktrendTask();
           } catch (error) {
@@ -94,7 +93,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           scheduled: true
         });
 
-        console.log('✅ 港股15分钟RSI回测定时任务创建成功，将在工作日17:03执行');
       }
       
       // 执行手动任务
@@ -103,15 +101,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       res.status(200).json({ 
-        message: 'Cron job set to HK [15]RSI backtrend every workday',
-        schedule: '工作日 17:03',
+        message: 'Cron job set to HK [30]RSI backtrend every workday',
+        schedule: '工作日 17:13',
         market: '港股',
         task_type: '15分钟RSI回测',
         data: rsiData,
         monitoring: {
           enabled: true,
           job_name: SchedulerService.generateJobName(EJobType.BACKTREND_15RSI, EMarketType.HK),
-          cron_description: SchedulerService.getCronDescription('3 17 * * 1-5')
+          cron_description: SchedulerService.getCronDescription('13 17 * * 1-5')
         }
       });
 

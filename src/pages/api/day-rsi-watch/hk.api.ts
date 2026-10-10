@@ -9,7 +9,7 @@ import { EJobType, EMarketType } from '@/services/models/SchedulerLog';
 
 export const dynamic = 'force-dynamic';
 
-let HTask: cron.ScheduledUSTask;
+let HTask: cron.ScheduledTask | null = null;
 
 // 定时器执行函数
 async function executeScheduledHKTask(): Promise<unknown[] | null> {
@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const isImmediately = req.query?.isImmediately || false
   
   if (req.method === 'GET') {
-    let rsiData
+    let rsiData: unknown;
     console.log('isEmpty(HTask)', isEmpty(HTask));
     
     try {

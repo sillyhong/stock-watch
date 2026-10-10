@@ -3826,7 +3826,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 处理 GET 请求
   if (req.method === 'GET') {
     try {
-      const eastmoneyData =  await axios.get('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=15&fqt=1&end=20250930&lmt=210')
+      const eastmoneyData =  await axios.get('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=15&fqt=1&end=20260126&lmt=210')
       // const eastmoneyData =  await axios.get('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=15&fqt=0&beg=20250101&end=20251231')
       
       // console.log("🚀 ~ handler ~ eastmoneyData:", eastmoneyData?.data?.data)
@@ -3854,7 +3854,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.error("Error in RSI calculation:", error);
       res.status(500).json({ 
         message: "Error calculating RSI", 
-        error: error.message 
+        error: error instanceof Error ? error.message : String(error)
       });
     }
   } else {

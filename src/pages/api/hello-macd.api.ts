@@ -6,7 +6,7 @@ import axios from 'axios';
 import { formatKlinesData } from '../utils/formatKlines';
 
 
-const sourceData = {
+const fallbackSourceData = {
   klines: [
     "2025-01-27 09:45,40.600,42.100,42.150,40.600,7071000,294813595.000,3.82",
     "2025-01-27 10:00,42.050,41.700,42.100,41.500,1838000,76763520.000,1.43",
@@ -51,22 +51,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 处理 GET 请求
   if (req.method === 'GET') {
     try {
-      const eastmoneyData =  await axios.get('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=15&fqt=1&end=20250930&lmt=210')
-      // const eastmoneyData =  await axios.get('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58&klt=15&fqt=0&beg=20250101&end=20251231')
-      
-      // console.log("🚀 ~ handler ~ eastmoneyData:", eastmoneyData?.data?.data)
-      const sourceData = eastmoneyData?.data?.data
+      const userAgents = [
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 11_6_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_0_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Safari/605.1.15',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0',
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1',
+      ];
+      const userAgent = userAgents[Math.floor(Math.random() * userAgents.length)];
+
+      // const eastmoneyData =  await axios.get('https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=15&fqt=1&end=20250930&lmt=210')
+      //102 week
+      const eastmoneyUrl = 'https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=0.300033&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1%2Cf2%2Cf3%2Cf4%2Cf5%2Cf6%2Cf7%2Cf8&fields2=f51%2Cf52%2Cf53%2Cf54%2Cf55%2Cf56%2Cf57%2Cf58%2Cf59%2Cf60%2Cf61%2Cf62%2Cf63%2Cf64&klt=103&fqt=1&end=20260213&lmt=810';
+
+      let sourceData = fallbackSourceData;
+      try {
+        const eastmoneyData =  await axios.get(eastmoneyUrl, {
+          timeout: 8000,
+          headers: {
+            'User-Agent': userAgent,
+            Referer: 'https://quote.eastmoney.com/',
+          },
+        });
+        // console.log("🚀 ~ handler ~ eastmoneyData:", eastmoneyData?.data?.data)
+        sourceData = eastmoneyData?.data?.data ?? fallbackSourceData;
+      } catch (requestError) {
+        console.warn('Eastmoney request failed, using fallback data:', requestError);
+      }
       
       // Format the klines data
       const formattedData = formatKlinesData(sourceData);
+      console.log("🚀 ~ handler ~ formattedData:", formattedData);
       
       // Extract the full_klines array which contains the processed data
       const klinesData = formattedData.full_klines;
-      // console.log("🚀 ~ handler ~ klinesData:", klinesData);
+      console.log("🚀 ~ handler ~ klinesData:", klinesData);
       
       // Calculate MACD using the MACD function directly
-      const macdData = GetConvert('MA', klinesData);
-      // console.log("🚀 ~ handler ~ macdData:", macdData);
+      const macdData = GetConvert('MACD', klinesData);
+      console.log("🚀 ~ handler ~ macdData:", macdData);
 
       res.status(200).json({ 
         message: "MACD calculation successful",
@@ -74,10 +100,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         count: macdData.length
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
       console.error("Error in MACD calculation:", error);
       res.status(500).json({ 
         message: "Error calculating MACD", 
-        error: error.message 
+        error: errorMessage 
       });
     }
   } else {

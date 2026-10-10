@@ -1,6 +1,11 @@
 
-export const sortByStockName = (list) => {
-  const groupedProfits = list.reduce((acc, item) => {
+interface ProfitGroup {
+  maxProfit: number;
+  items: string[];
+}
+
+export const sortByStockName = (list: string[]): string[] => {
+  const groupedProfits = list.reduce<Record<string, ProfitGroup>>((acc, item) => {
 
     const stockName = item.includes("</td><td>")
       ? item.split("</td><td>")[2]
@@ -38,7 +43,7 @@ export const sortByStockName = (list) => {
   });
 };
 
-export const normalSortByStockName = (list) => {
+export const normalSortByStockName = (list: string[]): string[] => {
   return list.sort((a, b) => {
     const stockNameA = a.split("</td><td>")[2]; // Assuming stock name is in the third column
     const stockNameB = b.split("</td><td>")[2];
@@ -47,7 +52,7 @@ export const normalSortByStockName = (list) => {
 };
 
 // Sort buyList: '立即买入🚀' should come first
-export const sortListBySuggestion = (list, suggestion) => {
+export const sortListBySuggestion = (list: string[], suggestion: string): string[] => {
   return list.sort((a, b) => {
     
     // First, sort by suggestion
@@ -64,4 +69,3 @@ export const sortListBySuggestion = (list, suggestion) => {
     return rsiA - rsiB; // Sort by RSI value from small to large
   });
 }
-

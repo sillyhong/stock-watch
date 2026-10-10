@@ -1,12 +1,17 @@
-function extractSecurityCodes(arr) {
+interface ZixuanStock {
+    security: string;
+}
+
+function extractSecurityCodes(arr: ZixuanStock[]): string[] {
     return arr.filter(item => item.security.startsWith('0$') || item.security.startsWith('1$'))
               .map(item => {
                   const parts = item.security.split('$');
-                  if(parts?.length) return `${parts[0]}.${parts[1]}`;
-              }).filter(item => !!item);
+                  if(parts.length > 1) return `${parts[0]}.${parts[1]}`;
+                  return null;
+              }).filter((item): item is string => item !== null);
 }
 
-var arr = [{
+const arr = [{
     "security": "0$301517$24581808415882",
     "star": false,
     "updatetime": 20241015091910,

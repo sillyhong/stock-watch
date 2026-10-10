@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  pageExtensions: ["ts", "tsx"],
+  pageExtensions: ["api.ts", "tsx"],
   basePath: "/stock",
   env: {
     NEXT_PUBLIC_BASE_PATH: "/stock",

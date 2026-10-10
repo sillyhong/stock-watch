@@ -62,7 +62,7 @@ const executeRSIWithFallback = async (klt: EKLT, currentDate: dayjs.Dayjs) => {
 
 let ATask: cron.ScheduledTask | null = null;
 let AMorningTask: cron.ScheduledTask | null = null;
-let rsiData
+let rsiData: unknown;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
