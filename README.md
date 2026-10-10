@@ -2,6 +2,20 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
+### Node.js version
+
+项目声明并锁定 Node.js `16.18.0`：
+
+```bash
+nvm install 16.18.0
+nvm use 16.18.0
+node --version
+```
+
+`package.json` 通过 `engines.node` 校验运行时版本，必须使用 `16.18.0`。
+
+注意：当前项目依赖的 `next@15.1.5` 官方要求 Node.js `18.18.0` 或更高版本，和 Node.js `16.18.0` 不兼容。若继续使用 Next.js 15，请将运行时升级到 Node.js `18.18.0+`；若必须锁定 Node.js `16.18.0`，需要同步降级 Next.js 版本。
+
 First, run the development server:
 
 ```bash
