@@ -57,7 +57,10 @@ function checkCleanupWindow(): void {
 }
 
 export async function register() {
-  if (process.env.NEXT_RUNTIME !== "nodejs" || process.env.NODE_ENV !== "production") return;
+  if (process.env.NEXT_RUNTIME && process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (process.env.NODE_ENV !== "production") return;
+
+  console.info("[production-schedulers] production instrumentation started");
 
   const { startProductionSchedulerBootstrap } = await import(
     "@/services/productionSchedulerBootstrap"
@@ -76,3 +79,4 @@ export async function register() {
     console.error("[system-log-cleanup] scheduler registration failed", error);
   }
 }
+
