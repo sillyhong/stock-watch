@@ -1,3 +1,6 @@
+import { apiCatalog } from "@/config/apiCatalog";
+import { recordSchedulerAction } from "@/services/schedulerRegistry";
+
 const INITIAL_DELAY_MS = 3_000;
 const RETRY_DELAY_MS = 15_000;
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -70,6 +73,15 @@ async function registerEndpoint(endpoint: string): Promise<void> {
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
+    }
+
+    const task = apiCatalog.find((candidate) => candidate.endpoint === endpoint);
+    if (task) {
+      recordSchedulerAction({
+        taskId: task.id,
+        action: "start",
+        message: "生产启动 bootstrap 已注册定时器",
+      });
     }
   } finally {
     clearTimeout(timeout);
