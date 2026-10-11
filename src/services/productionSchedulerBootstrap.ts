@@ -51,12 +51,18 @@ function getBaseUrl(): string {
   return `http://127.0.0.1:${process.env.PORT || "3008"}`;
 }
 
+function getAppBasePath(): string {
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  if (!basePath || basePath === "/") return "";
+  return `/${basePath.replace(/^\/+|\/+$/g, "")}`;
+}
+
 async function registerEndpoint(endpoint: string): Promise<void> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${getBaseUrl()}${endpoint}`, {
+    const response = await fetch(`${getBaseUrl()}${getAppBasePath()}${endpoint}`, {
       method: "GET",
       cache: "no-store",
       signal: controller.signal,
@@ -116,4 +122,3 @@ export function startProductionSchedulerBootstrap(): void {
     `[production-schedulers] bootstrap scheduled in ${INITIAL_DELAY_MS}ms`,
   );
 }
-

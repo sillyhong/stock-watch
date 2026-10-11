@@ -9,7 +9,11 @@ const globalState = globalThis as typeof globalThis & {
 function getCleanupUrl(): string {
   if (process.env.LOG_CLEANUP_URL) return process.env.LOG_CLEANUP_URL;
   const port = process.env.PORT || "3008";
-  return `http://127.0.0.1:${port}/api/maintenance/log-cleanup`;
+  const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
+  const normalizedBasePath = basePath && basePath !== "/"
+    ? `/${basePath.replace(/^\/+|\/+$/g, "")}`
+    : "";
+  return `http://127.0.0.1:${port}${normalizedBasePath}/api/maintenance/log-cleanup`;
 }
 
 async function triggerCleanup(): Promise<void> {
@@ -79,4 +83,3 @@ export async function register() {
     console.error("[system-log-cleanup] scheduler registration failed", error);
   }
 }
-
