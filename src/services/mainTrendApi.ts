@@ -13,7 +13,17 @@ export type MainTrendInterval = "day" | "60m" | "30m";
 type MainTrendKey = `${MainTrendMarket}/${MainTrendInterval}`;
 type MainTrendTask = ReturnType<typeof cron.schedule>;
 
-const cronExpression = "0 2 * * 1-5";
+const cronExpressions: Record<MainTrendKey, string> = {
+  "a/day": "0 2 * * 1-5",
+  "hk/day": "20 2 * * 1-5",
+  "us/day": "40 2 * * 1-5",
+  "a/60m": "0 3 * * 1-5",
+  "hk/60m": "20 3 * * 1-5",
+  "us/60m": "40 3 * * 1-5",
+  "a/30m": "0 4 * * 1-5",
+  "hk/30m": "20 4 * * 1-5",
+  "us/30m": "40 4 * * 1-5",
+};
 const tasks = new Map<MainTrendKey, MainTrendTask>();
 
 const configMap: Record<MainTrendKey, IMainTrendConditionConfig> = {
@@ -50,6 +60,11 @@ function isImmediate(req: NextApiRequest) {
   return value === "true" || value === "1";
 }
 
+function getScheduleLabel(key: MainTrendKey): string {
+  const [hour, minute] = cronExpressions[key].split(" ");
+  return `工作日 ${hour.padStart(2, "0")}:${minute.padStart(2, "0")}`;
+}
+
 function getContext(key: MainTrendKey, isManual: boolean, triggeredBy?: string): ISchedulerContext {
   const market = key.split("/")[0] as MainTrendMarket;
   const interval = key.split("/")[1];
@@ -59,7 +74,7 @@ function getContext(key: MainTrendKey, isManual: boolean, triggeredBy?: string):
     jobType: EJobType.DAY_RSI_WATCH,
     marketType: marketMap[market],
     apiPath,
-    cronExpression,
+    cronExpression: cronExpressions[key],
     isManual,
     triggeredBy,
   };
@@ -96,7 +111,7 @@ export default async function mainTrendHandler(req: NextApiRequest, res: NextApi
     if (!task) {
       tasks.set(
         key,
-        cron.schedule(cronExpression, async () => {
+        cron.schedule(cronExpressions[key], async () => {
           try {
             await executeTask(key, config, false);
           } catch (error) {
@@ -116,7 +131,7 @@ export default async function mainTrendHandler(req: NextApiRequest, res: NextApi
       market,
       interval,
       config_name: config.name,
-      schedule: "工作日 02:00",
+      schedule: getScheduleLabel(key),
       conditions: {
         condition1: config.macd.description,
         condition2: config.ma.description,

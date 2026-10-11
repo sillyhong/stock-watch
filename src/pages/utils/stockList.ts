@@ -40,18 +40,26 @@ export const HKStockList = [
 
 // https://quote.eastmoney.com/newapi/gethotgubalist_us
 export const USStockList = [
+  '105.AAPL',//苹果
    '105.NVDA', // 英伟达
    '106.BABA', // 阿里爸爸
    '105.TSLA',// 特斯拉
    '105.MSFT',// 微软
-   '106.XPEV',// '小鹏汽车'
+  //  '106.XPEV',// '小鹏汽车'
    '105.META',//Meta Platforms Inc-A
-   '105.PDD',//拼多多
+  //  '105.PDD',//拼多多
    '105.GOOGL',// 谷歌-A
-   '105.JD',//京东
-   '105.BIDU',//百度
+  //  '105.JD',//京东
+  //  '105.BIDU',//百度
    '105.AMD',//超威半导体
    '105.AVGO',// 博通
+   '106.GLW',//康宁
+   '105.SKHY',//海力士
+   '105.SNDK', // 闪迪
+   '105.MU',//美光
+   '105.SPCX',//spacex
+   '105.INTC',//英特尔，
+   '106.TSM',//台积电
 ]
 
 

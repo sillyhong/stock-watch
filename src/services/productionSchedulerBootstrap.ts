@@ -20,8 +20,10 @@ const schedulerEndpoints = [
   "/api/15-rsi-watch/us",
   "/api/day-rsi-watch/us",
   "/api/backtrend/15-rsi/us",
-  "/api/day-rise/a",
-  "/api/day-rise/us",
+  "/api/day-rise/a/day",
+  "/api/day-rise/hk/day",
+  "/api/day-rise/us/day",
+  "/api/day-rise/a/60m",
   "/api/nash-ai/daily",
   "/api/reuters",
 ] as const;
