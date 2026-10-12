@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   Alert,
   App as AntApp,
@@ -32,6 +33,7 @@ import {
   CheckCircleOutlined,
   ClockCircleOutlined,
   EyeOutlined,
+  FileSearchOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   PlayCircleOutlined,
@@ -353,6 +355,7 @@ function ApiConsolePage() {
 
   const menuItems = [
     { key: "ALL", icon: <AppstoreOutlined />, label: "全部任务" },
+    { key: "LOG_ANALYZE", icon: <FileSearchOutlined />, label: <Link href="/log-analyze">日志分析</Link> },
     { type: "divider" as const },
     {
       type: "group" as const,

@@ -128,15 +128,15 @@ function marketTimerTasks(input: {
 }
 
 const mainTrendDefinitions = [
-  { market: "A" as const, interval: "DAY" as const, path: "day", configKey: "A_DAY_MAIN_TREND" },
-  { market: "A" as const, interval: "60M" as const, path: "60m", configKey: "A_MIN_60_MAIN_TREND" },
-  { market: "A" as const, interval: "30M" as const, path: "30m", configKey: "A_MIN_30_MAIN_TREND" },
-  { market: "HK" as const, interval: "DAY" as const, path: "day", configKey: "HK_DAY_MAIN_TREND" },
-  { market: "HK" as const, interval: "60M" as const, path: "60m", configKey: "HK_MIN_60_MAIN_TREND" },
-  { market: "HK" as const, interval: "30M" as const, path: "30m", configKey: "HK_MIN_30_MAIN_TREND" },
-  { market: "US" as const, interval: "DAY" as const, path: "day", configKey: "US_DAY_MAIN_TREND" },
-  { market: "US" as const, interval: "60M" as const, path: "60m", configKey: "US_MIN_60_MAIN_TREND" },
-  { market: "US" as const, interval: "30M" as const, path: "30m", configKey: "US_MIN_30_MAIN_TREND" },
+  { market: "A" as const, interval: "DAY" as const, path: "day", configKey: "A_DAY_MAIN_TREND", scheduleLabel: "工作日 · 02:00" },
+  { market: "HK" as const, interval: "DAY" as const, path: "day", configKey: "HK_DAY_MAIN_TREND", scheduleLabel: "工作日 · 02:20" },
+  { market: "US" as const, interval: "DAY" as const, path: "day", configKey: "US_DAY_MAIN_TREND", scheduleLabel: "工作日 · 02:40" },
+  { market: "A" as const, interval: "60M" as const, path: "60m", configKey: "A_MIN_60_MAIN_TREND", scheduleLabel: "工作日 · 03:00" },
+  { market: "HK" as const, interval: "60M" as const, path: "60m", configKey: "HK_MIN_60_MAIN_TREND", scheduleLabel: "工作日 · 03:20" },
+  { market: "US" as const, interval: "60M" as const, path: "60m", configKey: "US_MIN_60_MAIN_TREND", scheduleLabel: "工作日 · 03:40" },
+  { market: "A" as const, interval: "30M" as const, path: "30m", configKey: "A_MIN_30_MAIN_TREND", scheduleLabel: "工作日 · 04:00" },
+  { market: "HK" as const, interval: "30M" as const, path: "30m", configKey: "HK_MIN_30_MAIN_TREND", scheduleLabel: "工作日 · 04:20" },
+  { market: "US" as const, interval: "30M" as const, path: "30m", configKey: "US_MIN_30_MAIN_TREND", scheduleLabel: "工作日 · 04:40" },
 ] as const;
 
 function mainTrendTasks(): ApiTaskDefinition[] {
@@ -152,7 +152,7 @@ function mainTrendTasks(): ApiTaskDefinition[] {
       feature: "MAIN_TREND",
       endpoint: `/api/day-rise/${market.path}/${definition.path}`,
       purpose: `${market.label}${interval.label}主涨段监控，读取 ${definition.configKey} 配置。`,
-      scheduleLabel: "工作日 · 02:00",
+      scheduleLabel: definition.scheduleLabel,
     });
   });
 }

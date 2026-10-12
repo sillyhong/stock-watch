@@ -1,25 +1,25 @@
 git pull
 pm2 restart stock-watch-dev 
 sleep 5
- curl http://localhost:3008/api/30-rsi-watch/hk
- curl http://localhost:3008/api/15-rsi-watch/hk
- curl http://localhost:3008/api/5-rsi-watch/hk
- curl http://localhost:3008/api/day-rsi-watch/hk
- curl http://localhost:3008/api/backtrend/15-rsi/hk
- curl http://localhost:3008/api/30-rsi-watch/a
- curl http://localhost:3008/api/15-rsi-watch/a
- curl http://localhost:3008/api/5-rsi-watch/a
- curl http://localhost:3008/api/day-rsi-watch/a
- curl http://localhost:3008/api/backtrend/30-rsi/a
- curl http://localhost:3008/api/backtrend/15-rsi/a
- curl http://localhost:3008/api/15-rsi-watch/us
-#  curl http://localhost:3008/api/5-rsi-watch/us
- curl http://localhost:3008/api/day-rsi-watch/us
- curl http://localhost:3008/api/backtrend/15-rsi/us
+ curl http://localhost:3008/stock/api/30-rsi-watch/hk
+ curl http://localhost:3008/stock/api/15-rsi-watch/hk
+ curl http://localhost:3008/stock/api/5-rsi-watch/hk
+ curl http://localhost:3008/stock/api/day-rsi-watch/hk
+ curl http://localhost:3008/stock/api/backtrend/15-rsi/hk
+ curl http://localhost:3008/stock/api/30-rsi-watch/a
+ curl http://localhost:3008/stock/api/15-rsi-watch/a
+ curl http://localhost:3008/stock/api/5-rsi-watch/a
+ curl http://localhost:3008/stock/api/day-rsi-watch/a
+ curl http://localhost:3008/stock/api/backtrend/30-rsi/a
+ curl http://localhost:3008/stock/api/backtrend/15-rsi/a
+ curl http://localhost:3008/stock/api/15-rsi-watch/us
+#  curl http://localhost:3008/stock/api/5-rsi-watch/us
+ curl http://localhost:3008/stock/api/day-rsi-watch/us
+ curl http://localhost:3008/stock/api/backtrend/15-rsi/us
  #主张段
- curl http://localhost:3008/api/day-rise/a
- curl http://localhost:3008/api/day-rise/us
+ curl http://localhost:3008/stock/api/day-rise/a
+ curl http://localhost:3008/stock/api/day-rise/us
  #研报
- curl http://localhost:3008/api/nash-ai/daily
+ curl http://localhost:3008/stock/api/nash-ai/daily
  #路透
- curl http://localhost:3008/api/reuters
+ curl http://localhost:3008/stock/api/reuters
