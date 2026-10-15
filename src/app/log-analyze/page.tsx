@@ -11,6 +11,7 @@ import {
   ConfigProvider,
   Empty,
   Input,
+  Modal,
   Select,
   Space,
   Spin,
@@ -47,7 +48,7 @@ type LogResponse = {
   serverTime: string;
 };
 
-const lineOptions = [100, 200, 500, 1000].map((value) => ({ label: `最近 ${value} 行`, value }));
+const lineOptions = [200, 500, 1000, 5000, 10000].map((value) => ({ label: `最近 ${value} 行`, value }));
 const levelOptions = [
   { label: "全部级别", value: "all" },
   { label: "仅错误", value: "error" },
@@ -94,6 +95,9 @@ function LogAnalyzeContent() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>();
+  const [clearConfirmStep, setClearConfirmStep] = useState<0 | 1 | 2>(0);
+  const [confirmFileName, setConfirmFileName] = useState("");
+  const [clearing, setClearing] = useState(false);
 
   async function loadLogs(file = selectedFile, showLoading = true, requestedLineLimit = lineLimit) {
     if (showLoading) setRefreshing(true);
@@ -175,6 +179,8 @@ function LogAnalyzeContent() {
     [lines],
   );
 
+  const selectedFileMeta = files.find((file) => file.name === selectedFile);
+
   function handleScroll() {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -184,6 +190,32 @@ function LogAnalyzeContent() {
   function handleClear() {
     setLines([]);
     message.info("已清空当前页面日志视图，下一次刷新会重新加载");
+  }
+
+  async function clearSelectedLog() {
+    if (!selectedFile || confirmFileName !== selectedFile) return;
+    setClearing(true);
+    try {
+      const response = await fetch(LOG_API, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear", file: selectedFile }),
+      });
+      const payload = (await response.json()) as { success: boolean; error?: string };
+      if (!response.ok || !payload.success) {
+        throw new Error(payload.error ?? `清空失败（HTTP ${response.status}）`);
+      }
+      setClearConfirmStep(0);
+      setConfirmFileName("");
+      message.success(`${selectedFile} 内容已清空，文件仍保留`);
+      await loadLogs(selectedFile);
+    } catch (clearError) {
+      const messageText = clearError instanceof Error ? clearError.message : "清空日志失败";
+      setError(messageText);
+      message.error(messageText);
+    } finally {
+      setClearing(false);
+    }
   }
 
   return (
@@ -246,6 +278,14 @@ function LogAnalyzeContent() {
               <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void loadLogs(selectedFile)}>
                 刷新
               </Button>
+              <Button
+                danger
+                icon={<ClearOutlined />}
+                disabled={!selectedFile}
+                onClick={() => setClearConfirmStep(1)}
+              >
+                清空文件
+              </Button>
               <Button icon={<ClearOutlined />} onClick={handleClear}>清空视图</Button>
             </Space>
           </div>
@@ -263,7 +303,12 @@ function LogAnalyzeContent() {
         <Card
           className={styles.logCard}
           bordered={false}
-          title={selectedFile ?? "PM2 日志"}
+          title={
+            <Space>
+              <span>{selectedFile ?? "PM2 日志"}</span>
+              {selectedFileMeta && <Tag>{formatBytes(selectedFileMeta.size)}</Tag>}
+            </Space>
+          }
           extra={<Tag color={truncated ? "gold" : "blue"}>{truncated ? "尾部内容" : "完整内容"}</Tag>}
         >
           <Spin spinning={loading} tip="读取日志中...">
@@ -288,6 +333,52 @@ function LogAnalyzeContent() {
           <Text className={styles.footerMeta}>目录：{directory ?? "/root/.pm2/logs"}</Text>
           <Text className={styles.footerMeta}>服务端更新时间：{formatTime(serverTime)} · 显示 {visibleLines.length} / {lines.length} 行</Text>
         </div>
+
+        <Modal
+          open={clearConfirmStep === 1}
+          title="第一次确认：清空日志文件内容"
+          okText="继续确认"
+          cancelText="取消"
+          maskClosable={false}
+          onCancel={() => setClearConfirmStep(0)}
+          onOk={() => setClearConfirmStep(2)}
+        >
+          <Alert
+            type="warning"
+            showIcon
+            message="只会清空内容，不会删除文件"
+            description={
+              selectedFile
+                ? `${selectedFile} 当前大小为 ${formatBytes(selectedFileMeta?.size ?? 0)}。清空后文件会保留，PM2 可以继续写入。`
+                : "当前没有选中的日志文件。"
+            }
+          />
+        </Modal>
+
+        <Modal
+          open={clearConfirmStep === 2}
+          title="第二次确认：输入文件名"
+          okText={clearing ? "清空中..." : "确认清空内容"}
+          cancelText="取消"
+          okButtonProps={{ danger: true, disabled: !selectedFile || confirmFileName !== selectedFile, loading: clearing }}
+          maskClosable={false}
+          onCancel={() => {
+            setClearConfirmStep(0);
+            setConfirmFileName("");
+          }}
+          onOk={() => void clearSelectedLog()}
+        >
+          <Space direction="vertical" style={{ width: "100%" }}>
+            <Text>请输入完整文件名以确认操作：</Text>
+            <Text code>{selectedFile}</Text>
+            <Input
+              autoFocus
+              value={confirmFileName}
+              placeholder="输入上面的完整文件名"
+              onChange={(event) => setConfirmFileName(event.target.value)}
+            />
+          </Space>
+        </Modal>
       </div>
     </main>
   );

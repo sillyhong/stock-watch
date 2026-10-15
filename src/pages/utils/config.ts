@@ -381,16 +381,23 @@ export const createFutuRequest = (stockInfo: IFutuStockInfo, klt: EKLT) => {
  * @param stockLists 股票列表
  * @returns 格式化后的股票数据
  */
-export const processFutuData = (eastmoneyData: unknown, stockLists: (string | IFutuStockInfo)[]): IStockData => {
-  const findStockIndex = stockLists.findIndex((stockItem: string | IFutuStockInfo) => 
-    typeof stockItem === 'object' && stockItem.stockId === (eastmoneyData as IFutuApiResponse)?.data?.stockId
+export const processFutuData = (
+  eastmoneyData: unknown,
+  stockLists: (string | IFutuStockInfo)[],
+  requestedStockInfo?: IFutuStockInfo,
+): IStockData => {
+  const responseStockId = (eastmoneyData as IFutuApiResponse)?.data?.stockId;
+  const responseStock = stockLists.find((stockItem): stockItem is IFutuStockInfo =>
+    typeof stockItem === 'object' && stockItem.stockId === responseStockId
   );
-  
-  if (findStockIndex === -1) {
-    throw new Error(`未找到对应股票信息: stockId=${(eastmoneyData as IFutuApiResponse)?.data?.stockId}`);
-  }
+  const requestedStock = requestedStockInfo && stockLists.find((stockItem): stockItem is IFutuStockInfo =>
+    typeof stockItem === 'object' && stockItem.stockId === requestedStockInfo.stockId
+  );
+  const targetStock = requestedStock || responseStock;
 
-  const targetStock = stockLists[findStockIndex] as IFutuStockInfo;
+  if (!targetStock) {
+    throw new Error(`未找到对应股票信息: requestedStockId=${requestedStockInfo?.stockId}, responseStockId=${responseStockId}`);
+  }
   
   // 过滤并格式化K线数据：只保留交易时间内的数据，且分钟为0,15,30,45
   const klines = ((eastmoneyData as IFutuApiResponse)?.data?.list || [])

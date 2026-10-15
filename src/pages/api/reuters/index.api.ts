@@ -92,6 +92,7 @@ async function executeReutersTask(options: {
   try {
     const executedAt = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
     const date = dayjs().format('YYYY-MM-DD');
+    console.info(`[reuters] run started at=${executedAt} sendEmail=${sendEmail}`);
     const fetched = buildEmptyTitlesByRegion();
     const fetchedEntries = buildEmptyFetchedEntriesByRegion();
     const translated: IReutersEntriesByRegion = {
@@ -121,6 +122,16 @@ async function executeReutersTask(options: {
     if (iranResult.errorMessage) {
       errors.push(`[iran] ${iranResult.errorMessage}`);
     }
+
+    const fetchedCounts = {
+      us: fetched.us.length,
+      china: fetched.china.length,
+      iran: fetched.iran.length,
+    };
+    console.info(
+      `[reuters] fetch completed counts=${JSON.stringify(fetchedCounts)} errors=${errors.length}`,
+    );
+    errors.forEach((error) => console.warn(`[reuters] fetch warning ${error}`));
 
     let filePath: string | null = null;
     let incremental = buildEmptyTitlesByRegion();
@@ -169,8 +180,20 @@ async function executeReutersTask(options: {
     })) {
       emailSkippedReason = 'No incremental titles';
     } else {
+      console.info(
+        `[reuters] sending email incremental=${JSON.stringify({
+          us: incrementalTranslated.us.length,
+          china: incrementalTranslated.china.length,
+          iran: incrementalTranslated.iran.length,
+        })}`,
+      );
       await sendReutersIncrementEmail(executedAt, incrementalTranslated);
       emailSent = true;
+      console.info('[reuters] email sent successfully');
+    }
+
+    if (!emailSent) {
+      console.info(`[reuters] email skipped reason=${emailSkippedReason ?? 'unknown'}`);
     }
 
     const runResult: IReutersRunResult = {
@@ -187,6 +210,13 @@ async function executeReutersTask(options: {
     };
 
     lastReutersRunResult = runResult;
+    console.info(
+      `[reuters] run completed emailSent=${runResult.emailSent} incremental=${JSON.stringify({
+        us: runResult.incremental.us.length,
+        china: runResult.incremental.china.length,
+        iran: runResult.incremental.iran.length,
+      })}`,
+    );
     return runResult;
   } finally {
     isReutersJobRunning = false;
@@ -222,13 +252,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const isImmediately = parseBooleanFlag(req.query.isImmediately, false);
     const sendEmail = parseBooleanFlag(req.query.sendEmail, true);
 
-    try {
-      const data = isImmediately
-        ? await executeReutersTask({ sendEmail })
-        : lastReutersRunResult;
-
+    if (!isImmediately) {
+      console.info('[reuters] scheduler initialized; this request did not execute a fetch');
       return res.status(200).json({
-        message: 'Reuters cron task ready.',
+        success: true,
+        action: 'scheduler_initialized',
+        executed: false,
+        message: 'Reuters 定时器已启动；本次请求没有立即抓取新闻。传入 isImmediately=true 可立即执行。',
+        schedule: SCHEDULE_LABEL,
+        cronExpression: CRON_EXPRESSION,
+        running: isReutersJobRunning,
+        initialized: Boolean(reutersTask),
+        lastRun: lastReutersRunResult,
+      });
+    }
+
+    try {
+      const data = await executeReutersTask({ sendEmail });
+      const fetchedCount = data.fetched.us.length + data.fetched.china.length + data.fetched.iran.length;
+      const allRegionsFailed = fetchedCount === 0;
+      const message = data.emailSent
+        ? 'Reuters 抓取完成，邮件已提交发送。'
+        : `Reuters 抓取完成，但未发送邮件：${data.emailSkippedReason ?? '未知原因'}`;
+
+      return res.status(allRegionsFailed ? 502 : 200).json({
+        success: !allRegionsFailed,
+        action: 'executed',
+        executed: true,
+        message: allRegionsFailed
+          ? 'Reuters 本次抓取失败，所有地区均未获取到新闻。'
+          : message,
+        emailSent: data.emailSent,
+        emailSkippedReason: data.emailSkippedReason,
         schedule: SCHEDULE_LABEL,
         cronExpression: CRON_EXPRESSION,
         running: isReutersJobRunning,

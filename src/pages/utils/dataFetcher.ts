@@ -52,7 +52,7 @@ import {
   REFERERS 
 } from "./header";
 import { IRequestFailureInfo } from "../interface";
-import { IFutuStockInfo } from "../interface/futu";
+import { IStockFetchResult, IFutuStockInfo } from "../interface/futu";
 
 /**
  * 批量数据获取结果
@@ -115,6 +115,11 @@ export const batchFetchStockData = async ({
         
         if (result) {
           successfulRequestCount++;
+          return {
+            kind: 'stock-fetch-result',
+            requestedStock: stockId,
+            response: result,
+          } satisfies IStockFetchResult;
         }
         return result;
       } catch (error) {
@@ -236,4 +241,4 @@ export const logRequestStatistics = (
       }
     });
   }
-}; 
+};

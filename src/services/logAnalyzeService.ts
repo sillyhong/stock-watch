@@ -36,7 +36,7 @@ export class LogAnalyzeError extends Error {
 
 const LOG_DIRECTORY = "/root/.pm2/logs";
 const TAIL_CHUNK_BYTES = 64 * 1024;
-const MAX_TAIL_BYTES = 2 * 1024 * 1024;
+const MAX_TAIL_BYTES = 16 * 1024 * 1024;
 
 function classifyLine(text: string): LogLevel {
   const normalized = text.toLowerCase();
@@ -116,6 +116,7 @@ async function readTailLines(fileName: string, lineLimit: number): Promise<Pick<
   try {
     let position = stats.size;
     let bytesRead = 0;
+    let newlineCount = 0;
     const chunks: Buffer[] = [];
 
     while (position > 0 && bytesRead < MAX_TAIL_BYTES) {
@@ -123,12 +124,14 @@ async function readTailLines(fileName: string, lineLimit: number): Promise<Pick<
       const start = Math.max(0, position - bytesToRead);
       const chunk = Buffer.alloc(position - start);
       const result = await handle.read(chunk, 0, chunk.length, start);
-      chunks.unshift(chunk.subarray(0, result.bytesRead));
+      const bytes = chunk.subarray(0, result.bytesRead);
+      chunks.unshift(bytes);
+      for (const byte of bytes) {
+        if (byte === 10) newlineCount += 1;
+      }
       bytesRead += result.bytesRead;
       position = start;
 
-      const text = Buffer.concat(chunks).toString("utf8");
-      const newlineCount = (text.match(/\n/g) ?? []).length;
       if (position === 0 || newlineCount >= lineLimit + 1) break;
     }
 
@@ -171,4 +174,40 @@ export async function getLogSnapshot(fileName: string | undefined, lineLimit: nu
     ...content,
     serverTime: new Date().toISOString(),
   };
+}
+
+export async function clearLogFile(fileName: string): Promise<{ name: string; size: number; clearedAt: string }> {
+  const safeFileName = assertSafeFileName(fileName);
+  const filePath = path.join(LOG_DIRECTORY, safeFileName);
+  let stats;
+
+  try {
+    stats = await lstat(filePath);
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+    if (code === "ENOENT") {
+      throw new LogAnalyzeError("要清空的日志文件不存在，可能已被 PM2 轮转", 404);
+    }
+    throw new LogAnalyzeError("读取日志文件信息失败", 500);
+  }
+
+  if (!stats.isFile()) {
+    throw new LogAnalyzeError("只能清空普通日志文件", 400);
+  }
+
+  let handle;
+  try {
+    handle = await open(filePath, "r+");
+    await handle.truncate(0);
+  } catch (error) {
+    const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+    if (code === "EACCES" || code === "EPERM") {
+      throw new LogAnalyzeError("没有权限清空该 PM2 日志文件", 403);
+    }
+    throw new LogAnalyzeError("清空 PM2 日志文件失败", 500);
+  } finally {
+    await handle?.close();
+  }
+
+  return { name: safeFileName, size: 0, clearedAt: new Date().toISOString() };
 }

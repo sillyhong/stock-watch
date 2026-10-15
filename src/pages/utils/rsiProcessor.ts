@@ -48,7 +48,7 @@ import {
   getEKLTDesc, 
   IStockData 
 } from "../interface";
-import { IFutuStockInfo } from "../interface/futu";
+import { IStockFetchResult, IFutuStockInfo } from "../interface/futu";
 import { 
   ERSISuggestion,
   EReqType,
@@ -91,6 +91,64 @@ export interface IRSIProcessParams {
   isBacktesting: boolean;
 }
 
+interface IProcessingDiagnosticGroup {
+  count: number;
+  samples: string[];
+}
+
+interface IProcessingDiagnostics {
+  failedResponses: number;
+  skipped: Record<string, IProcessingDiagnosticGroup>;
+  errors: Record<string, IProcessingDiagnosticGroup>;
+}
+
+function createProcessingDiagnostics(): IProcessingDiagnostics {
+  return { failedResponses: 0, skipped: {}, errors: {} };
+}
+
+function addDiagnostic(
+  groups: Record<string, IProcessingDiagnosticGroup>,
+  reason: string,
+  sample: unknown,
+): void {
+  const safeReason = reason.slice(0, 200);
+  const groupKey = Object.prototype.hasOwnProperty.call(groups, safeReason) || Object.keys(groups).length < 10
+    ? safeReason
+    : 'other_reasons';
+  const group = groups[groupKey] ?? (groups[groupKey] = { count: 0, samples: [] });
+  group.count += 1;
+  if (group.samples.length < 3) {
+    const sampleText = typeof sample === 'string' ? sample : JSON.stringify(sample) ?? String(sample);
+    group.samples.push(sampleText.slice(0, 500));
+  }
+}
+
+function logProcessingDiagnostics(
+  diagnostics: IProcessingDiagnostics,
+  stockType: EStockType,
+  klt: EKLT,
+  reqType: EReqType,
+): void {
+  if (!diagnostics.failedResponses && !Object.keys(diagnostics.skipped).length && !Object.keys(diagnostics.errors).length) {
+    return;
+  }
+
+  console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] RSI数据处理汇总 ${JSON.stringify({
+    reqType,
+    failedResponses: diagnostics.failedResponses,
+    skipped: diagnostics.skipped,
+    errors: diagnostics.errors,
+  })}`);
+}
+
+function getRequestedStockLabel(responseData: unknown): string | undefined {
+  if (!responseData || typeof responseData !== 'object') return undefined;
+  const result = responseData as Partial<IStockFetchResult>;
+  if (result.kind !== 'stock-fetch-result') return undefined;
+  if (typeof result.requestedStock === 'string') return result.requestedStock;
+  return `${result.requestedStock?.stockCode ?? 'unknown'}(${result.requestedStock?.stockId ?? 'unknown'})`;
+}
+
 
 /**
  * 处理RSI数据并生成买卖建议（真正的异步并行版本）
@@ -102,12 +160,13 @@ export const processRSIDataAsync = async (params: IRSIProcessParams): Promise<IR
   const kltDesc = getEKLTDesc(klt);
 
   const startTime = Date.now();
+  const diagnostics = createProcessingDiagnostics();
   // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 🚀 开始异步并行处理${allResults.length}个有效响应`);
 
   // 创建异步任务数组，使用Promise.all实现真正的并行处理
   const processTasks = allResults.map(async (responseData: unknown, index) => {
     if (!responseData) {
-      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
+      diagnostics.failedResponses += 1;
       return null;
     }
 
@@ -122,11 +181,16 @@ export const processRSIDataAsync = async (params: IRSIProcessParams): Promise<IR
           klt,
           kltDesc,
           currentDate,
-          isBacktesting
+          isBacktesting,
+          diagnostics,
         })
       );
     } catch (error) {
-      console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 处理股票 ${index} 数据时出错:`, error);
+      const reason = error instanceof Error ? error.message : String(error);
+      addDiagnostic(diagnostics.errors, reason, {
+        index,
+        stock: getRequestedStockLabel(responseData),
+      });
       return null;
     }
   });
@@ -154,6 +218,7 @@ export const processRSIDataAsync = async (params: IRSIProcessParams): Promise<IR
   const duration = endTime - startTime;
   const successCount = processResults.filter(r => r !== null).length;
   console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] ✅ 异步并行处理完成，耗时: ${duration}ms，成功处理: ${successCount}/${allResults.length} 个股票`);
+  logProcessingDiagnostics(diagnostics, stockType, klt, reqType);
 
   return {
     rsiDataList: targetRSIData,
@@ -174,12 +239,13 @@ export const processRSIData = (params: IRSIProcessParams): IRSIProcessResult => 
   const kltDesc = getEKLTDesc(klt);
 
   const startTime = Date.now();
+  const diagnostics = createProcessingDiagnostics();
   console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 开始处理${allResults.length}个有效响应（同步模式）`);
 
   // 使用map处理所有股票数据
   const processResults = allResults.map((responseData: unknown, index) => {
     if (!responseData) {
-      console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求 ${index} 失败`);
+      diagnostics.failedResponses += 1;
       return null;
     }
 
@@ -192,10 +258,15 @@ export const processRSIData = (params: IRSIProcessParams): IRSIProcessResult => 
         klt,
         kltDesc,
         currentDate,
-        isBacktesting
+        isBacktesting,
+        diagnostics,
       });
     } catch (error) {
-      console.error(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 处理股票 ${index} 数据时出错:`, error);
+      const reason = error instanceof Error ? error.message : String(error);
+      addDiagnostic(diagnostics.errors, reason, {
+        index,
+        stock: getRequestedStockLabel(responseData),
+      });
       return null;
     }
   });
@@ -220,6 +291,7 @@ export const processRSIData = (params: IRSIProcessParams): IRSIProcessResult => 
   const duration = endTime - startTime;
   const successCount = processResults.filter(r => r !== null).length;
   console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 处理完成，耗时: ${duration}ms，成功处理: ${successCount}/${allResults.length} 个股票`);
+  logProcessingDiagnostics(diagnostics, stockType, klt, reqType);
 
   return {
     rsiDataList: targetRSIData,
@@ -322,7 +394,8 @@ function processSingleStockRSI({
   klt,
   kltDesc,
   currentDate,
-  isBacktesting
+  isBacktesting,
+  diagnostics,
 }: {
   responseData: unknown;
   reqType: EReqType;
@@ -332,22 +405,38 @@ function processSingleStockRSI({
   kltDesc: string | undefined;
   currentDate: Dayjs;
   isBacktesting: boolean;
+  diagnostics: IProcessingDiagnostics;
 }) {
   // ================================= 数据源处理 =================================
   let sourceData: IStockData = {};
-  
+  const fetchResult = responseData as Partial<IStockFetchResult>;
+  const hasRequestContext = fetchResult.kind === 'stock-fetch-result';
+  const apiResponse = hasRequestContext ? fetchResult.response : responseData;
+  const requestedStock = hasRequestContext ? fetchResult.requestedStock : undefined;
+
   if (reqType === EReqType.EASY_MONEY) {
-    const response = responseData as { data?: { data?: IStockData } };
+    const response = apiResponse as { data?: { data?: IStockData } };
     sourceData = response?.data?.data || {};
   } else {
-    sourceData = processFutuData(responseData, stockLists);
+    const requestedFutuStock = requestedStock && typeof requestedStock === 'object'
+      ? requestedStock
+      : undefined;
+    sourceData = processFutuData(apiResponse, stockLists, requestedFutuStock);
   }
 
   // ================================= 股票信息提取 =================================
   const market = sourceData?.market;
   const stockCode = sourceData?.code;
   if (market === undefined || !stockCode || !sourceData?.name) {
-    console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 数据不完整，跳过处理 ${JSON.stringify({market, stockCode, name: sourceData?.name})}`);
+    addDiagnostic(diagnostics.skipped, 'incomplete_stock_data', {
+      market,
+      stockCode,
+      name: sourceData?.name,
+      reqType,
+      requestedStock: typeof requestedStock === 'string'
+        ? requestedStock
+        : requestedStock?.stockCode,
+    });
     return null;
   }
 
@@ -362,14 +451,28 @@ function processSingleStockRSI({
 
   const marketType = (MarketType as Record<number, string>)[market];
   if (!marketType) {
-    console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] 未知市场类型: ${market}`);
+    addDiagnostic(diagnostics.skipped, 'unknown_market_type', {
+      market,
+      stockCode,
+      name: sourceData?.name,
+      requestedStock: typeof requestedStock === 'string'
+        ? requestedStock
+        : requestedStock?.stockCode,
+    });
     return null;
   }
 
   // ================================= RSI计算 =================================
   const RSIData = formatKlinesData(sourceData);
   if (!RSIData?.full_klines || RSIData.full_klines.length === 0) {
-    console.warn(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}] RSI数据为空，跳过${stockName}`);
+    addDiagnostic(diagnostics.skipped, 'empty_rsi_data', {
+      market,
+      stockCode,
+      stockName,
+      requestedStock: typeof requestedStock === 'string'
+        ? requestedStock
+        : requestedStock?.stockCode,
+    });
     return null;
   }
 
@@ -497,4 +600,4 @@ function processSingleStockRSI({
     buyItems,
     sellItems
   };
-} 
+}

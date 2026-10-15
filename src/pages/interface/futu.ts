@@ -5,6 +5,12 @@ export interface IFutuStockInfo {
     quoteToken: string
 }
 
+export interface IStockFetchResult {
+    kind: 'stock-fetch-result';
+    requestedStock: string | IFutuStockInfo;
+    response: unknown;
+}
+
 export interface IFutuApiResponse {
     data?: {
       stockId?: string;
