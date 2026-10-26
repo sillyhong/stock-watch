@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { IReutersDailyFile, IReutersEntriesByRegion, IReutersFetchedEntriesByRegion, IReutersFetchedEntry, IReutersTitleEntry, IReutersTitlesByRegion } from './types';
+import { normalizeReutersArticleUrl } from './reutersUrl';
 
 const DATA_DIR = path.join(process.cwd(), 'src/pages/data/reuters');
 
@@ -16,7 +17,7 @@ function normalizeEntries(payload: unknown, fallbackPublishedAt: string): IReute
   }
 
   return payload
-    .map((item) => {
+    .map((item): IReutersTitleEntry | null => {
       if (typeof item === 'string') {
         return {
           publishedAt: fallbackPublishedAt,
@@ -36,6 +37,7 @@ function normalizeEntries(payload: unknown, fallbackPublishedAt: string): IReute
           publishedAt: typeof entry.publishedAt === 'string' && entry.publishedAt ? entry.publishedAt : fallbackPublishedAt,
           en: entry.en!,
           zh: entry.zh!,
+          url: normalizeReutersArticleUrl(entry.url),
         };
       }
 

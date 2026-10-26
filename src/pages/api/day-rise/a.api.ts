@@ -150,7 +150,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   if (req.method === 'GET') {
     let tryAgain = true
-    console.log('isEmpty(ATask)', isEmpty(ATask));
     let mainTrendData
     
     try {

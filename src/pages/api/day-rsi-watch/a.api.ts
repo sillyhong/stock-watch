@@ -88,12 +88,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   
   if (req.method === 'GET') {
     let rsiData: unknown;
-    console.log('isEmpty(ATask)', isEmpty(ATask));
     
     try {
       // 创建定时任务（如果不存在）
       if (isEmpty(ATask)) {
-        console.log('📅 创建A股日RSI定时任务...');
         
         ATask = cron.schedule('40 16 * * 1-5', async () => {
           try {

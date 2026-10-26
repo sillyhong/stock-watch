@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { IReutersFetchResult, IReutersFetchedEntriesByRegion, IReutersFetchedEntry, IReutersTitlesByRegion, ReutersRegion } from './types';
+import { normalizeReutersArticleUrl } from './reutersUrl';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -73,6 +74,7 @@ function dedupeEntries(entries: IReutersFetchedEntry[]): IReutersFetchedEntry[] 
     const normalizedEntry: IReutersFetchedEntry = {
       title: normalizedTitle,
       publishedAt: entry.publishedAt,
+      url: normalizeReutersArticleUrl(entry.url),
     };
 
     if (!entryMap.has(key)) {
@@ -81,9 +83,11 @@ function dedupeEntries(entries: IReutersFetchedEntry[]): IReutersFetchedEntry[] 
     }
 
     const existing = entryMap.get(key)!;
-    if (!existing.publishedAt && normalizedEntry.publishedAt) {
-      entryMap.set(key, normalizedEntry);
-    }
+    entryMap.set(key, {
+      ...existing,
+      publishedAt: existing.publishedAt || normalizedEntry.publishedAt,
+      url: existing.url || normalizedEntry.url,
+    });
   });
 
   return Array.from(entryMap.values());
@@ -93,7 +97,23 @@ function dedupeTitles(titles: string[]): string[] {
   return dedupeEntries(titles.map((title) => ({ title, publishedAt: '' }))).map((entry) => entry.title);
 }
 
-function collectHeadlineValues(payload: unknown, output: string[]): void {
+function pickArticleUrl(record: Record<string, unknown>): string | undefined {
+  const mainEntity = record.mainEntityOfPage;
+  const mainEntityUrl = mainEntity && typeof mainEntity === 'object'
+    ? (mainEntity as Record<string, unknown>)['@id']
+    : mainEntity;
+
+  for (const candidate of [record.canonical_url, record.website_url, record.url, record.link, mainEntityUrl, record['@id']]) {
+    const url = normalizeReutersArticleUrl(candidate);
+    if (url) {
+      return url;
+    }
+  }
+
+  return undefined;
+}
+
+function collectHeadlineEntries(payload: unknown, output: IReutersFetchedEntry[]): void {
   if (!payload) {
     return;
   }
@@ -103,23 +123,26 @@ function collectHeadlineValues(payload: unknown, output: string[]): void {
   }
 
   if (Array.isArray(payload)) {
-    payload.forEach((item) => collectHeadlineValues(item, output));
+    payload.forEach((item) => collectHeadlineEntries(item, output));
     return;
   }
 
   if (typeof payload === 'object') {
-    Object.entries(payload as Record<string, unknown>).forEach(([key, value]) => {
-      if (key === 'headline' && typeof value === 'string') {
-        output.push(value);
-        return;
-      }
-      collectHeadlineValues(value, output);
-    });
+    const record = payload as Record<string, unknown>;
+    if (typeof record.headline === 'string') {
+      output.push({
+        title: record.headline,
+        publishedAt: normalizePublishedAt(record.datePublished),
+        url: pickArticleUrl(record),
+      });
+    }
+
+    Object.values(record).forEach((value) => collectHeadlineEntries(value, output));
   }
 }
 
-function extractTitlesFromJsonLd(html: string): string[] {
-  const titles: string[] = [];
+function extractEntriesFromJsonLd(html: string): IReutersFetchedEntry[] {
+  const entries: IReutersFetchedEntry[] = [];
   const regex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
 
   for (const match of html.matchAll(regex)) {
@@ -130,13 +153,13 @@ function extractTitlesFromJsonLd(html: string): string[] {
 
     try {
       const parsed = JSON.parse(rawContent) as unknown;
-      collectHeadlineValues(parsed, titles);
+      collectHeadlineEntries(parsed, entries);
     } catch (error) {
       console.warn('⚠️ Reuters JSON-LD parse failed:', error);
     }
   }
 
-  return titles;
+  return entries;
 }
 
 function extractTitlesFromHeadlineField(html: string): string[] {
@@ -176,39 +199,39 @@ function stripInnerTags(html: string): string {
     .trim();
 }
 
-function extractTitlesFromAnchors(html: string, region: ReutersRegion): string[] {
-  const titles: string[] = [];
+function extractEntriesFromAnchors(html: string, region: ReutersRegion): IReutersFetchedEntry[] {
+  const entries: IReutersFetchedEntry[] = [];
   const hrefPattern = buildArticleHrefPattern(region);
   const anchorRegex = /<a\b([^>]*)>([\s\S]*?)<\/a>/gi;
 
   for (const match of html.matchAll(anchorRegex)) {
     const attrs = match[1] || '';
     const innerHtml = match[2] || '';
-    const hrefMatch = attrs.match(/href=["']([^"']+)["']/i);
-    const href = hrefMatch?.[1] || '';
-    if (!hrefPattern.test(href)) {
+    const hrefMatch = attrs.match(/\bhref\s*=\s*["']([^"']+)["']/i);
+    const url = normalizeReutersArticleUrl(decodeHtmlEntities(hrefMatch?.[1] || ''));
+    if (!url || !hrefPattern.test(url)) {
       continue;
     }
 
-    const ariaMatch = attrs.match(/aria-label=["']([^"']+)["']/i);
+    const ariaMatch = attrs.match(/aria-label\s*=\s*["']([^"']+)["']/i);
     if (ariaMatch?.[1]) {
-      titles.push(ariaMatch[1]);
+      entries.push({ title: ariaMatch[1], publishedAt: '', url });
     }
 
     const text = stripInnerTags(innerHtml);
     if (text) {
-      titles.push(text);
+      entries.push({ title: text, publishedAt: '', url });
     }
   }
 
-  return titles;
+  return entries;
 }
 
-function extractReutersTitles(html: string, region: ReutersRegion): string[] {
-  return dedupeTitles([
-    ...extractTitlesFromJsonLd(html),
-    ...extractTitlesFromHeadlineField(html),
-    ...extractTitlesFromAnchors(html, region),
+function extractReutersEntries(html: string, region: ReutersRegion): IReutersFetchedEntry[] {
+  return dedupeEntries([
+    ...extractEntriesFromJsonLd(html),
+    ...extractTitlesFromHeadlineField(html).map((title) => ({ title, publishedAt: '' })),
+    ...extractEntriesFromAnchors(html, region),
   ]);
 }
 
@@ -313,6 +336,7 @@ function extractEntriesFromArticleList(payload: unknown): IReutersFetchedEntry[]
     entries.push({
       title,
       publishedAt,
+      url: pickArticleUrl(record),
     });
   });
 
@@ -410,11 +434,12 @@ async function fetchReutersRegionFromHtml(region: ReutersRegion): Promise<IReute
       };
     }
 
-    const titles = extractReutersTitles(html, region);
+    const entries = extractReutersEntries(html, region);
+    const titles = entries.map((entry) => entry.title);
     return {
       region,
       url,
-      entries: titles.map((title) => ({ title, publishedAt: '' })),
+      entries,
       titles,
       statusCode: response.status,
       errorMessage: titles.length ? undefined : 'No titles extracted from Reuters HTML',

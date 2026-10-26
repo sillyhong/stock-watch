@@ -66,7 +66,6 @@ let rsiData: unknown;
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    console.log('isEmpty(ATask)',isEmpty(ATask))
     const isImmediately = req.query?.isImmediately || false
     if (isEmpty(ATask)) {
       ATask = cron.schedule('*/30 10-15 * * 1-5', async ()=>{

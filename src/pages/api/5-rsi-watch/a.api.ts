@@ -39,7 +39,6 @@ function isInAllowedTimeRange(): boolean {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
     const rsiData = undefined;
-    console.log('isEmpty(ATask)',isEmpty(ATask))
     if (isEmpty(ATask)) {
       // 每5分钟执行，但只在9:25-15:00之间触发，内部会再次检查精确时间段
       ATask = cron.schedule('*/5 9-15 * * 1-5', ()=>{

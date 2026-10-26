@@ -3,6 +3,7 @@ export type ReutersRegion = 'us' | 'china' | 'iran';
 export interface IReutersFetchedEntry {
   title: string;
   publishedAt: string;
+  url?: string;
 }
 
 export interface IReutersFetchedEntriesByRegion {
@@ -15,6 +16,7 @@ export interface IReutersTitleEntry {
   publishedAt: string;
   en: string;
   zh: string;
+  url?: string;
 }
 
 export interface IReutersEntriesByRegion {

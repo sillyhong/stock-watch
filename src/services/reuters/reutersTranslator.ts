@@ -223,6 +223,7 @@ function buildRawEntries(entries: IReutersFetchedEntriesByRegion['us']): IReuter
     publishedAt: entry.publishedAt,
     en: entry.title,
     zh: entry.title,
+    url: entry.url,
   }));
 }
 
@@ -245,6 +246,7 @@ async function translateRegionTitles(
       publishedAt: entry.publishedAt,
       en: title,
       zh,
+      url: entry.url,
     };
   }, tracker);
 }
