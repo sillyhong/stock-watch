@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { IReutersEntriesByRegion } from './types';
-import { normalizeReutersArticleUrl } from './reutersUrl';
+import { normalizeReutersNewsUrl } from './reutersUrl';
 
 const RECIPIENT_EMAIL = process.env.REUTERS_RECIPIENT_EMAIL || '1175166300@qq.com';
 const SENDER_EMAIL = '1175166300@qq.com';
@@ -28,10 +28,11 @@ function buildTitleList(entries: IReutersEntriesByRegion['us']): string {
 
   return entries
     .map((entry) => {
-      const englishTitle = `${entry.publishedAt ? `[${entry.publishedAt}] ` : ''}${entry.en}`;
-      const url = normalizeReutersArticleUrl(entry.url);
+      const timeSource = entry.publishedAtSource === 'google-news' ? ' Google News' : entry.publishedAtSource === 'rsshub' ? ' RSSHub' : '';
+      const englishTitle = `${entry.publishedAt ? `[${entry.publishedAt}${timeSource}] ` : ''}${entry.en}`;
+      const url = normalizeReutersNewsUrl(entry.url);
       const originalLink = url
-        ? `<br /><a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;margin-top:8px;padding:5px 12px;background:#1d4ed8;border:1px solid #1d4ed8;border-radius:6px;color:#ffffff;font-size:12px;line-height:20px;text-decoration:none;">查看原文</a>`
+        ? ` <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;vertical-align:middle;margin-left:4px;padding:0 6px;background:#1d4ed8;border:1px solid #1d4ed8;border-radius:4px;color:#ffffff;font-size:11px;line-height:18px;text-decoration:none;">查看原文</a>`
         : '';
       return `<li>${escapeHtml(entry.zh)}<br /><span style="color:#64748b;font-size:12px;">${escapeHtml(englishTitle)}</span>${originalLink}</li>`;
     })

@@ -1,74 +1,23 @@
 .shell {
   min-height: 100vh;
-  background: #f5f7fa;
+  background: transparent;
 }
 
-.sider {
-  background: #001529 !important;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 72px;
-  padding: 16px;
-  overflow: hidden;
-}
-
-.brandMark {
-  display: grid;
-  flex: 0 0 auto;
-  width: 36px;
-  height: 36px;
-  place-items: center;
-  border-radius: 10px;
-  color: #fff;
-  background: linear-gradient(135deg, #1677ff, #0958d9);
-  font-weight: 800;
-  letter-spacing: -0.05em;
-}
-
-.brandTitle,
-.brandSubTitle {
-  display: block;
-  white-space: nowrap;
-}
-
-.brandTitle {
-  color: #fff;
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.brandSubTitle {
-  margin-top: 2px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 11px;
-}
-
-.siderFooter {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 18px 24px;
-  font-size: 12px;
-}
-
-.header {
+.shell .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: auto;
   min-height: 76px;
   padding: 12px 28px;
-  background: #fff;
-  border-bottom: 1px solid #f0f0f0;
+  background: rgba(9, 25, 42, 0.82);
+  border-bottom: 1px solid rgba(133, 167, 202, 0.14);
+  backdrop-filter: blur(14px);
 }
 
 .pageTitle {
   margin: 0 !important;
-  color: #102a43 !important;
+  color: #f4f8ff !important;
 }
 
 .content {
@@ -76,10 +25,11 @@
   padding: 24px 28px 40px;
 }
 
-.overviewCard {
+.shell .overviewCard {
   height: 100%;
-  border-color: #e8edf3;
-  box-shadow: 0 4px 16px rgba(16, 42, 67, 0.04);
+  border-color: rgba(133, 167, 202, 0.18);
+  background: rgba(12, 28, 48, 0.86);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
 }
 
 .healthCard {
@@ -94,10 +44,11 @@
   margin: 16px 0;
 }
 
-.filterCard {
+.shell .filterCard {
   margin: 16px 0;
-  border-color: #e8edf3;
-  box-shadow: 0 4px 16px rgba(16, 42, 67, 0.04);
+  border-color: rgba(133, 167, 202, 0.18);
+  background: rgba(12, 28, 48, 0.86);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
 }
 
 .filterStack {
@@ -112,7 +63,7 @@
   gap: 16px;
 }
 
-.sectionTitle {
+.shell .sectionTitle {
   margin: 0 0 4px !important;
 }
 
@@ -128,16 +79,98 @@
   margin-top: 4px;
 }
 
-.taskCard {
+.reutersPanel {
+  display: flex;
+  width: 100%;
+}
+
+.reutersPanelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.reutersSchedule {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.pipelineGrid {
+  width: 100%;
+}
+
+.shell .pipelineCard {
   height: 100%;
-  border-color: #e8edf3;
-  box-shadow: 0 4px 16px rgba(16, 42, 67, 0.04);
+  border-color: rgba(133, 167, 202, 0.18);
+  background: rgba(12, 28, 48, 0.86);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.16);
+}
+
+.pipelineTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.shell .pipelineDescription {
+  min-height: 44px;
+  margin: 10px 0 16px;
+  color: #8da3bb;
+}
+
+.pipelineRegionCounts {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+}
+
+.pipelineError {
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+
+.shell .taskCard {
+  height: 100%;
+  border-color: rgba(133, 167, 202, 0.18);
+  background: rgba(12, 28, 48, 0.86);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, 0.15);
   transition: transform 160ms ease, box-shadow 160ms ease;
 }
 
-.taskCard:hover {
-  box-shadow: 0 10px 24px rgba(16, 42, 67, 0.1);
+.shell .taskCard:hover {
+  border-color: rgba(19, 194, 194, 0.38);
+  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.28);
   transform: translateY(-2px);
+}
+
+.shell :global(.ant-btn.ant-btn-disabled),
+.shell :global(.ant-btn:disabled),
+.shell :global(.ant-btn[disabled]) {
+  color: #a9bad0 !important;
+  background: #1d2e44 !important;
+  border-color: #3b506a !important;
+  box-shadow: none !important;
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.shell :global(.ant-btn-primary.ant-btn-disabled),
+.shell :global(.ant-btn-primary:disabled) {
+  color: #c4ddf5 !important;
+  background: #294763 !important;
+  border-color: #456887 !important;
+}
+
+.shell :global(.ant-btn-dangerous.ant-btn-disabled),
+.shell :global(.ant-btn-dangerous:disabled) {
+  color: #ffc0c0 !important;
+  background: #482d36 !important;
+  border-color: #76505b !important;
 }
 
 .taskTitle {
@@ -154,9 +187,9 @@
   white-space: nowrap;
 }
 
-.purpose {
+.shell .purpose {
   min-height: 44px;
-  color: #52606d;
+  color: #9aafc4;
 }
 
 .metaTags {
@@ -177,7 +210,7 @@
   max-width: 100%;
 }
 
-.cardDivider {
+.shell .cardDivider {
   margin: 14px 0;
 }
 
@@ -197,7 +230,7 @@
   margin-top: 10px;
 }
 
-.responseCard {
+.shell .responseCard {
   margin-top: 10px;
 }
 
@@ -221,7 +254,7 @@
 }
 
 @media (max-width: 768px) {
-  .header {
+  .shell .header {
     align-items: flex-start;
     flex-direction: column;
     gap: 10px;
@@ -239,5 +272,10 @@
 
   .searchInput {
     width: 100%;
+  }
+
+  .reutersPanelHeader {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

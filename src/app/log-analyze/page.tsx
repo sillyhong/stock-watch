@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
   Alert,
   App as AntApp,
   Badge,
   Button,
   Card,
-  ConfigProvider,
   Empty,
   Input,
   Modal,
@@ -21,7 +19,6 @@ import {
   Typography,
 } from "antd";
 import {
-  ArrowLeftOutlined,
   BugOutlined,
   ClearOutlined,
   ClockCircleOutlined,
@@ -229,7 +226,6 @@ function LogAnalyzeContent() {
           </div>
           <div className={styles.headerActions}>
             <Badge status={error ? "error" : "processing"} text={error ? "日志读取异常" : "监控在线"} />
-            <Link href="/" className={styles.backLink}><ArrowLeftOutlined /> 返回控制台</Link>
           </div>
         </header>
 
@@ -385,21 +381,5 @@ function LogAnalyzeContent() {
 }
 
 export default function LogAnalyzePage() {
-  return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: "#13c2c2",
-          borderRadius: 8,
-          colorBgContainer: "#0c1c30",
-          colorText: "#d7e3f4",
-          colorTextSecondary: "#8da3bb",
-        },
-      }}
-    >
-      <AntApp>
-        <LogAnalyzeContent />
-      </AntApp>
-    </ConfigProvider>
-  );
+  return <LogAnalyzeContent />;
 }

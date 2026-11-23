@@ -2,7 +2,8 @@ import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
 import { IReutersFetchResult, IReutersFetchedEntriesByRegion, IReutersFetchedEntry, IReutersTitlesByRegion, ReutersRegion } from './types';
-import { normalizeReutersArticleUrl } from './reutersUrl';
+import { normalizeReutersArticleUrl, normalizeReutersNewsUrl } from './reutersUrl';
+import { buildReutersFeedUrl, fetchReutersFeed } from './reutersFeeds';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -61,6 +62,13 @@ function normalizePublishedAt(value: unknown): string {
   return '';
 }
 
+function formatHttpFailure(source: string, status: number, body: string): string {
+  if (status === 401 && /captcha-delivery\.com|<title>reuters\.com/i.test(body)) {
+    return `${source} failed: 401 (Reuters anti-bot challenge)`;
+  }
+  return `${source} failed: ${status} ${body.slice(0, 160)}`;
+}
+
 function dedupeEntries(entries: IReutersFetchedEntry[]): IReutersFetchedEntry[] {
   const entryMap = new Map<string, IReutersFetchedEntry>();
 
@@ -74,7 +82,8 @@ function dedupeEntries(entries: IReutersFetchedEntry[]): IReutersFetchedEntry[] 
     const normalizedEntry: IReutersFetchedEntry = {
       title: normalizedTitle,
       publishedAt: entry.publishedAt,
-      url: normalizeReutersArticleUrl(entry.url),
+      publishedAtSource: entry.publishedAtSource,
+      url: normalizeReutersNewsUrl(entry.url),
     };
 
     if (!entryMap.has(key)) {
@@ -86,6 +95,7 @@ function dedupeEntries(entries: IReutersFetchedEntry[]): IReutersFetchedEntry[] 
     entryMap.set(key, {
       ...existing,
       publishedAt: existing.publishedAt || normalizedEntry.publishedAt,
+      publishedAtSource: existing.publishedAt ? existing.publishedAtSource : normalizedEntry.publishedAtSource,
       url: existing.url || normalizedEntry.url,
     });
   });
@@ -370,7 +380,7 @@ async function fetchReutersRegionFromApi(region: ReutersRegion): Promise<IReuter
         entries: [],
         titles: [],
         statusCode: response.status,
-        errorMessage: `Reuters API failed: ${response.status} ${rawText.slice(0, 180)}`,
+        errorMessage: formatHttpFailure('Reuters API', response.status, rawText),
       };
     }
 
@@ -430,7 +440,7 @@ async function fetchReutersRegionFromHtml(region: ReutersRegion): Promise<IReute
         entries: [],
         titles: [],
         statusCode: response.status,
-        errorMessage: `Reuters HTML failed: ${response.status} ${html.slice(0, 180)}`,
+        errorMessage: formatHttpFailure('Reuters HTML', response.status, html),
       };
     }
 
@@ -487,7 +497,7 @@ export function buildEmptyFetchedEntriesByRegion(): IReutersFetchedEntriesByRegi
   };
 }
 
-export async function fetchReutersRegion(region: ReutersRegion): Promise<IReutersFetchResult> {
+async function fetchReutersDirect(region: ReutersRegion): Promise<IReutersFetchResult> {
   const apiResult = await fetchReutersRegionFromApi(region);
   if (apiResult.titles.length > 0) {
     return apiResult;
@@ -505,5 +515,53 @@ export async function fetchReutersRegion(region: ReutersRegion): Promise<IReuter
     titles: [],
     statusCode: apiResult.statusCode || htmlResult.statusCode,
     errorMessage: [apiResult.errorMessage, htmlResult.errorMessage].filter(Boolean).join(' | '),
+  };
+}
+
+export async function fetchReutersRegion(
+  region: ReutersRegion,
+  sourceMode: 'all' | 'google-news' = 'all',
+): Promise<IReutersFetchResult> {
+  if (sourceMode === 'google-news') {
+    const google = await fetchReutersFeed('google-news', region);
+    const entries = dedupeEntries(google.entries);
+    const errorMessage = google.error;
+    return {
+      region,
+      url: buildReutersFeedUrl('google-news', region),
+      entries,
+      titles: entries.map((entry) => entry.title),
+      sources: {
+        direct: { count: 0 },
+        rsshub: { count: 0 },
+        googleNews: { count: entries.length, error: errorMessage },
+      },
+      errorMessage,
+    };
+  }
+
+  const [direct, rsshub, google] = await Promise.all([
+    fetchReutersDirect(region),
+    fetchReutersFeed('rsshub', region),
+    fetchReutersFeed('google-news', region),
+  ]);
+  const entries = dedupeEntries([...direct.entries, ...rsshub.entries, ...google.entries]);
+  const failures = [
+    direct.errorMessage && `Reuters: ${direct.errorMessage}`,
+    rsshub.error && `RSSHub: ${rsshub.error}`,
+    google.error && `Google News: ${google.error}`,
+  ].filter(Boolean);
+  console.info(`[Reuters][${region}] sources: direct=${direct.entries.length}, rsshub=${rsshub.entries.length}, google-news=${google.entries.length}`);
+  if (entries.length && failures.length) console.warn(`[Reuters][${region}] source failures: ${failures.join(' | ')}`);
+  return {
+    ...direct,
+    entries,
+    titles: entries.map((entry) => entry.title),
+    sources: {
+      direct: { count: direct.entries.length, error: direct.errorMessage },
+      rsshub: { count: rsshub.entries.length, error: rsshub.error },
+      googleNews: { count: google.entries.length, error: google.error },
+    },
+    errorMessage: failures.length ? failures.join(' | ') : entries.length ? undefined : 'No titles from any source',
   };
 }

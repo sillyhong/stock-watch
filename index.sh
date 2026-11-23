@@ -20,6 +20,6 @@ sleep 5
  curl http://localhost:3008/stock/api/day-rise/a
  curl http://localhost:3008/stock/api/day-rise/us
  #研报
- curl http://localhost:3008/stock/api/nash-ai/daily
+ curl http://localhost:3008/stock/api/baogao/daily
  #路透
  curl http://localhost:3008/stock/api/reuters

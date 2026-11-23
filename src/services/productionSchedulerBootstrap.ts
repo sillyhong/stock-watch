@@ -24,7 +24,7 @@ const schedulerEndpoints = [
   "/api/day-rise/hk/day",
   "/api/day-rise/us/day",
   "/api/day-rise/a/60m",
-  "/api/nash-ai/daily",
+  "/api/baogao/daily",
   "/api/reuters",
 ] as const;
 

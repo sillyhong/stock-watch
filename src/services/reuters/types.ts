@@ -3,6 +3,7 @@ export type ReutersRegion = 'us' | 'china' | 'iran';
 export interface IReutersFetchedEntry {
   title: string;
   publishedAt: string;
+  publishedAtSource?: 'rsshub' | 'google-news';
   url?: string;
 }
 
@@ -14,6 +15,7 @@ export interface IReutersFetchedEntriesByRegion {
 
 export interface IReutersTitleEntry {
   publishedAt: string;
+  publishedAtSource?: 'rsshub' | 'google-news';
   en: string;
   zh: string;
   url?: string;
@@ -42,18 +44,32 @@ export interface IReutersFetchResult {
   url: string;
   entries: IReutersFetchedEntry[];
   titles: string[];
+  sources?: ReutersSourceStats;
   statusCode?: number;
   errorMessage?: string;
+}
+
+export interface ReutersSourceStatus {
+  count: number;
+  error?: string;
+}
+
+export interface ReutersSourceStats {
+  direct: ReutersSourceStatus;
+  rsshub: ReutersSourceStatus;
+  googleNews: ReutersSourceStatus;
 }
 
 export interface IReutersRunResult {
   executedAt: string;
   date: string;
+  sourceMode?: 'all' | 'google-news';
   filePath: string | null;
   fetched: IReutersTitlesByRegion;
   translated: IReutersEntriesByRegion;
   incremental: IReutersTitlesByRegion;
   incrementalTranslated: IReutersEntriesByRegion;
+  sourcesByRegion?: Record<ReutersRegion, ReutersSourceStats>;
   emailSent: boolean;
   emailSkippedReason?: string;
   errors: string[];

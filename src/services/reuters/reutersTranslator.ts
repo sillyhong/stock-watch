@@ -221,6 +221,7 @@ async function mapWithConcurrency<T, R>(
 function buildRawEntries(entries: IReutersFetchedEntriesByRegion['us']): IReutersTitleEntry[] {
   return entries.map((entry) => ({
     publishedAt: entry.publishedAt,
+    publishedAtSource: entry.publishedAtSource,
     en: entry.title,
     zh: entry.title,
     url: entry.url,
@@ -244,6 +245,7 @@ async function translateRegionTitles(
     const zh = await translateTitle(title, tracker);
     return {
       publishedAt: entry.publishedAt,
+      publishedAtSource: entry.publishedAtSource,
       en: title,
       zh,
       url: entry.url,

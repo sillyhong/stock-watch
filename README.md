@@ -44,6 +44,28 @@ npm start
 
 如果浏览器路径不是 `/usr/bin/google-chrome`，按 `which` 的实际结果设置 `EASTMONEY_BROWSER_PATH`。`playwright-core` 只负责控制已有浏览器，不会自动下载浏览器。
 
+## Eastmoney board stocks
+
+拉取东方财富指定板块的全部股票，并写入 `src/pages/data/astock/<fileName>.ts`。CPO 概念的板块编号为 `BK1128`，可以直接使用别名：
+
+```bash
+curl 'http://localhost:3008/stock/api/eastmoney/board-stocks?board=cpo'
+```
+
+此请求更新 `src/pages/data/astock/cpo.ts`，保留 `export const a_cpo = [...]`，每行使用东方财富返回的 `市场编号.股票代码` 和股票名称注释。无需浏览器或手动复制 Cookie。
+
+其他板块传入 `bkCode`（官网行情页 URL 中的 `BKxxxx`）和不含扩展名的 `fileName`，例如：
+
+```bash
+curl 'http://localhost:3008/stock/api/eastmoney/board-stocks?bkCode=BK0546&fileName=boliboxian'
+```
+
+`exportName` 可选，默认为 `a_<fileName>`。原 `/stock/api/easymony/board-stocks` 地址也可继续使用。接口返回写入路径、数量和代码数组；逐页获取、检查完整性后原子替换文件，请求失败或数据为空时保留原文件。
+
+访问 `/stock/boards` 可按名称或 BK 代码搜索地域、行业和概念板块，行业支持东方财富一级、二级和三级行业筛选。板块列表接口 `/stock/api/eastmoney/boards` 按页获取并缓存 15 分钟。页面浏览使用 `preview=true`，不会写入文件；点击保存并确认后才更新股票列表。
+
+生产环境中，被 Next.js 构建打包的股票列表需要在更新文件后重新构建并重启服务，才会使用新列表。
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

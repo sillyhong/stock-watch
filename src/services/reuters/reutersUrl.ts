@@ -20,3 +20,18 @@ export function normalizeReutersArticleUrl(value: unknown): string | undefined {
     return undefined;
   }
 }
+
+export function normalizeReutersNewsUrl(value: unknown): string | undefined {
+  const reutersUrl = normalizeReutersArticleUrl(value);
+  if (reutersUrl) return reutersUrl;
+  if (typeof value !== 'string') return undefined;
+
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.hostname !== 'news.google.com' || url.username || url.password || url.port || !/^\/(?:rss\/articles|articles|read)\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) return undefined;
+    url.hash = '';
+    return url.href;
+  } catch {
+    return undefined;
+  }
+}

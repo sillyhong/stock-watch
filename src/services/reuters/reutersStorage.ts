@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { IReutersDailyFile, IReutersEntriesByRegion, IReutersFetchedEntriesByRegion, IReutersFetchedEntry, IReutersTitleEntry, IReutersTitlesByRegion } from './types';
-import { normalizeReutersArticleUrl } from './reutersUrl';
+import { normalizeReutersNewsUrl } from './reutersUrl';
 
 const DATA_DIR = path.join(process.cwd(), 'src/pages/data/reuters');
 
@@ -35,9 +35,10 @@ function normalizeEntries(payload: unknown, fallbackPublishedAt: string): IReute
         const entry = item as Partial<IReutersTitleEntry>;
         return {
           publishedAt: typeof entry.publishedAt === 'string' && entry.publishedAt ? entry.publishedAt : fallbackPublishedAt,
+          publishedAtSource: entry.publishedAtSource === 'google-news' || entry.publishedAtSource === 'rsshub' ? entry.publishedAtSource : undefined,
           en: entry.en!,
           zh: entry.zh!,
-          url: normalizeReutersArticleUrl(entry.url),
+          url: normalizeReutersNewsUrl(entry.url),
         };
       }
 

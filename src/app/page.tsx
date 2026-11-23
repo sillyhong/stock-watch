@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import {
   Alert,
   App as AntApp,
@@ -9,14 +8,12 @@ import {
   Button,
   Card,
   Col,
-  ConfigProvider,
   Descriptions,
   Divider,
   Drawer,
   Empty,
   Input,
   Layout,
-  Menu,
   Popconfirm,
   Row,
   Segmented,
@@ -29,22 +26,20 @@ import {
   Typography,
 } from "antd";
 import {
-  AppstoreOutlined,
   CheckCircleOutlined,
   ClockCircleOutlined,
   EyeOutlined,
-  FileSearchOutlined,
-  MenuFoldOutlined,
-  MenuUnfoldOutlined,
+  FileTextOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
   SearchOutlined,
   SettingOutlined,
   StopOutlined,
 } from "@ant-design/icons";
-import type { ApiTaskDefinition, FeatureCode, IntervalCode, MarketCode } from "@/config/apiCatalog";
-import { apiCatalog, featureOptions, intervalOptions, marketOptions } from "@/config/apiCatalog";
+import type { ApiTaskDefinition, FeatureCode, IntervalCode } from "@/config/apiCatalog";
+import { apiCatalog, featureOptions, intervalOptions } from "@/config/apiCatalog";
 import type { SchedulerTaskState } from "@/services/schedulerRegistry";
+import type { ReutersRegion, ReutersSourceStats } from "@/services/reuters/types";
 import {
   ApiConsoleError,
   fetchSchedulerStats,
@@ -54,9 +49,11 @@ import {
   type ConsoleAction,
 } from "@/services/apiConsoleClient";
 import styles from "./page.module.css";
+import { usePlatformNavigation } from "./PlatformShell";
 
-const { Header, Sider, Content } = Layout;
+const { Header, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
+const REUTERS_API = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/reuters`;
 
 type TaskResponse = {
   action: ConsoleAction;
@@ -68,6 +65,124 @@ type TaskResponse = {
   errorCode?: string;
   createdAt: string;
 };
+
+type ReutersLastRun = {
+  executedAt: string;
+  date: string;
+  sourceMode?: 'all' | 'google-news';
+  filePath: string | null;
+  fetched: Record<ReutersRegion, string[]>;
+  incremental: Record<ReutersRegion, string[]>;
+  sourcesByRegion?: Record<ReutersRegion, ReutersSourceStats>;
+  emailSent: boolean;
+  emailSkippedReason?: string;
+  errors: string[];
+};
+
+type ReutersStatusResponse = {
+  success: boolean;
+  schedule: string;
+  cronExpression: string;
+  running: boolean;
+  initialized: boolean;
+  lastRun: ReutersLastRun | null;
+};
+
+const reutersSourceCards = [
+  { key: "direct" as const, title: "Reuters 直连", description: "Reuters Section API，失败时回退网页解析" },
+  { key: "rsshub" as const, title: "RSSHub Reuters", description: "US、China 走对应分区；Iran 从 Middle East 分区筛选" },
+  { key: "googleNews" as const, title: "Google News RSS", description: "按 Reuters 域名与地区路径搜索新闻" },
+];
+
+function ReutersPipelinePanel({
+  status,
+  loading,
+  error,
+  testing,
+  onTest,
+  onRefresh,
+}: {
+  status: ReutersStatusResponse | null;
+  loading: boolean;
+  error: string | null;
+  testing: boolean;
+  onTest: () => void;
+  onRefresh: () => void;
+}) {
+  const regions: ReutersRegion[] = ["us", "china", "iran"];
+  const regionNames: Record<ReutersRegion, string> = { us: "US", china: "China", iran: "Iran" };
+  const lastRun = status?.lastRun;
+
+  return (
+    <Space direction="vertical" size="middle" className={styles.reutersPanel}>
+      <Card className={styles.filterCard} size="small">
+        <div className={styles.reutersPanelHeader}>
+          <div>
+            <Title level={5} className={styles.sectionTitle}>Reuters 新闻采集链路</Title>
+            <Text type="secondary">定时任务使用 Google News RSS；立即联测仍并行检查三条来源，且不发邮件、不改定时器</Text>
+            <div className={styles.reutersSchedule}>
+              <Tag color={status?.initialized ? "green" : "default"}>
+                {status ? (status.initialized ? "定时器已注册" : "定时器未注册") : "定时器状态未知"}
+              </Tag>
+              <Text type="secondary">{status?.schedule ?? "工作日A股交易时段每5分钟，非工作日06:00执行一次"}</Text>
+              {status?.running && <Tag color="processing">任务执行中</Tag>}
+            </div>
+          </div>
+          <Space wrap>
+            <Button icon={<ReloadOutlined />} onClick={onRefresh} loading={loading}>刷新状态</Button>
+            <Button type="primary" icon={<PlayCircleOutlined />} onClick={onTest} loading={testing} disabled={testing}>
+              立即联测（不发邮件）
+            </Button>
+          </Space>
+        </div>
+      </Card>
+
+      {error && <Alert type="warning" showIcon message="Reuters 状态暂不可用" description={error} />}
+
+      <Row gutter={[16, 16]} className={styles.pipelineGrid}>
+        {reutersSourceCards.map((source) => {
+          const sourceStats = lastRun?.sourcesByRegion;
+          const counts = regions.map((region) => sourceStats?.[region]?.[source.key]?.count ?? 0);
+          const total = counts.reduce((sum, count) => sum + count, 0);
+          const skippedBySchedule = lastRun?.sourceMode === "google-news" && source.key !== "googleNews";
+          const failures = regions.flatMap((region) => {
+            const message = sourceStats?.[region]?.[source.key]?.error;
+            return message ? [`${regionNames[region]}: ${message}`] : [];
+          });
+          return (
+            <Col xs={24} md={12} xxl={8} key={source.key}>
+              <Card className={styles.pipelineCard} loading={loading && !lastRun} size="small">
+                <div className={styles.pipelineTitle}>
+                  <Text strong>{source.title}</Text>
+                  <Tag color={!lastRun || skippedBySchedule ? "default" : failures.length ? (total ? "warning" : "red") : "green"}>
+                    {!lastRun ? "待测试" : skippedBySchedule ? "定时链路未使用" : failures.length ? (total ? "部分可用" : "失败") : "正常"}
+                  </Tag>
+                </div>
+                <Paragraph className={styles.pipelineDescription}>{source.description}</Paragraph>
+                <Statistic title="本次来源标题数" value={lastRun ? total : "--"} />
+                <Text className={styles.pipelineRegionCounts} type="secondary">
+                  {regions.map((region, index) => `${regionNames[region]} ${lastRun ? counts[index] : "--"}`).join("  ·  ")}
+                </Text>
+                {failures.length > 0 && <Alert className={styles.pipelineError} type="warning" showIcon message={failures.join("；")} />}
+              </Card>
+            </Col>
+          );
+        })}
+      </Row>
+
+      <Card className={styles.filterCard} size="small">
+        <Space wrap>
+          <Text strong>最近执行</Text>
+          <Tag>{lastRun ? formatTime(lastRun.executedAt) : "尚无运行记录"}</Tag>
+          {lastRun && <Tag color="blue">增量 US {lastRun.incremental.us.length} · China {lastRun.incremental.china.length} · Iran {lastRun.incremental.iran.length}</Tag>}
+          {lastRun?.filePath && <Text type="secondary">存储：{lastRun.filePath}</Text>}
+        </Space>
+        {lastRun?.errors.length ? <Alert className={styles.pipelineError} type="warning" showIcon message={`本次有 ${lastRun.errors.length} 项来源请求异常，详情见上方来源卡片。`} /> : null}
+      </Card>
+      <Alert type="info" showIcon message="Google News RSS 使用范围" description="Google News RSS 条款限定个人非商业 feed 阅读用途；用于商业产品或再分发前，请先核实相应授权。" />
+    </Space>
+  );
+}
 
 const statusMeta: Record<
   SchedulerTaskState["status"],
@@ -220,10 +335,14 @@ function TaskCard({
 
 function ApiConsolePage() {
   const { message } = AntApp.useApp();
-  const [collapsed, setCollapsed] = useState(false);
-  const [marketFilter, setMarketFilter] = useState<MarketCode>("ALL");
+  const {
+    marketFilter,
+    setMarketFilter,
+    featureFilter,
+    setFeatureFilter,
+    showReutersPipeline,
+  } = usePlatformNavigation();
   const [intervalFilter, setIntervalFilter] = useState<IntervalCode>("ALL");
-  const [featureFilter, setFeatureFilter] = useState<FeatureCode>("ALL");
   const [searchText, setSearchText] = useState("");
   const [states, setStates] = useState<SchedulerTaskState[]>([]);
   const [responses, setResponses] = useState<Record<string, TaskResponse>>({});
@@ -234,6 +353,10 @@ function ApiConsolePage() {
   const [statsError, setStatsError] = useState<string | null>(null);
   const [initialLoading, setInitialLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reutersStatus, setReutersStatus] = useState<ReutersStatusResponse | null>(null);
+  const [reutersStatusLoading, setReutersStatusLoading] = useState(false);
+  const [reutersStatusError, setReutersStatusError] = useState<string | null>(null);
+  const [reutersTesting, setReutersTesting] = useState(false);
 
   const stateMap = useMemo(
     () => Object.fromEntries(states.map((state) => [state.taskId, state])) as Record<string, SchedulerTaskState>,
@@ -298,6 +421,71 @@ function ApiConsolePage() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!showReutersPipeline) return;
+    setIntervalFilter("ALL");
+    const controller = new AbortController();
+    const loadStatus = async () => {
+      setReutersStatusLoading(true);
+      try {
+        const response = await fetch(`${REUTERS_API}?statusOnly=true`, { cache: "no-store", signal: controller.signal });
+        const data = await response.json() as ReutersStatusResponse & { error?: string };
+        if (!response.ok || !data.success) throw new Error(data.error || `请求失败（HTTP ${response.status}）`);
+        setReutersStatus(data);
+        setReutersStatusError(null);
+      } catch (reason) {
+        if (!controller.signal.aborted) setReutersStatusError(reason instanceof Error ? reason.message : "获取 Reuters 状态失败");
+      } finally {
+        if (!controller.signal.aborted) setReutersStatusLoading(false);
+      }
+    };
+    void loadStatus();
+    const intervalId = window.setInterval(() => {
+      if (!document.hidden) void loadStatus();
+    }, 30_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+    };
+  }, [showReutersPipeline]);
+
+  useEffect(() => {
+    if (featureFilter !== "REUTERS") return;
+    setIntervalFilter("ALL");
+    setMarketFilter("ALL");
+  }, [featureFilter, setMarketFilter]);
+
+  async function refreshReutersStatus() {
+    setReutersStatusLoading(true);
+    try {
+      const response = await fetch(`${REUTERS_API}?statusOnly=true`, { cache: "no-store" });
+      const data = await response.json() as ReutersStatusResponse & { error?: string };
+      if (!response.ok || !data.success) throw new Error(data.error || `请求失败（HTTP ${response.status}）`);
+      setReutersStatus(data);
+      setReutersStatusError(null);
+    } catch (reason) {
+      setReutersStatusError(reason instanceof Error ? reason.message : "获取 Reuters 状态失败");
+    } finally {
+      setReutersStatusLoading(false);
+    }
+  }
+
+  async function testReutersPipelines() {
+    setReutersTesting(true);
+    try {
+      const response = await fetch(`${REUTERS_API}?isImmediately=true&sendEmail=false&skipScheduler=true`, { cache: "no-store" });
+      const data = await response.json() as { message?: string; lastRun?: ReutersLastRun; error?: string };
+      if (data.lastRun) setReutersStatus((current) => current ? { ...current, lastRun: data.lastRun! } : current);
+      await refreshReutersStatus();
+      if (!response.ok) throw new Error(data.message || data.error || `请求失败（HTTP ${response.status}）`);
+      message.success("Reuters 三链路执行完成，未发送邮件");
+    } catch (reason) {
+      message.error(reason instanceof Error ? reason.message : "Reuters 三链路执行失败");
+    } finally {
+      setReutersTesting(false);
+    }
+  }
+
   async function runAction(task: ApiTaskDefinition, action: ConsoleAction) {
     setBusyActions((current) => ({ ...current, [task.id]: action }));
     const startedAt = new Date().toISOString();
@@ -353,65 +541,13 @@ function ApiConsolePage() {
     ? stateMap[drawerTask.id] ?? { taskId: drawerTask.id, status: "UNKNOWN" as const, updatedAt: "" }
     : null;
 
-  const menuItems = [
-    { key: "ALL", icon: <AppstoreOutlined />, label: "全部任务" },
-    { key: "LOG_ANALYZE", icon: <FileSearchOutlined />, label: <Link href="/log-analyze">日志分析</Link> },
-    { type: "divider" as const },
-    {
-      type: "group" as const,
-      label: "市场",
-      children: marketOptions.slice(1).map((market) => ({ key: market.key, label: market.label })),
-    },
-  ];
-
   return (
     <Layout className={styles.shell}>
-      <Sider
-        className={styles.sider}
-        collapsible
-        collapsed={collapsed}
-        trigger={null}
-        breakpoint="lg"
-        onBreakpoint={(broken) => setCollapsed(broken)}
-      >
-        <div className={styles.brand}>
-          <div className={styles.brandMark}>SW</div>
-          {!collapsed && (
-            <div>
-              <Text className={styles.brandTitle}>Stock Watch</Text>
-              <Text className={styles.brandSubTitle}>API Control Center</Text>
-            </div>
-          )}
-        </div>
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[marketFilter]}
-          items={menuItems}
-          onClick={({ key }) => setMarketFilter(key as MarketCode)}
-        />
-        {!collapsed && (
-          <div className={styles.siderFooter}>
-            <Text type="secondary">{apiCatalog.length} 个已登记任务</Text>
-            <Text type="secondary">仅执行 Catalog API</Text>
-          </div>
-        )}
-      </Sider>
-
-      <Layout>
         <Header className={styles.header}>
-          <Space size="middle">
-            <Button
-              type="text"
-              aria-label={collapsed ? "展开侧边栏" : "折叠侧边栏"}
-              icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-              onClick={() => setCollapsed((value) => !value)}
-            />
-            <div>
-              <Title level={4} className={styles.pageTitle}>定时器 API 控制台</Title>
-              <Text type="secondary">市场数据任务 · 执行、启停、状态一站管理</Text>
-            </div>
-          </Space>
+          <div>
+            <Title level={4} className={styles.pageTitle}>定时器 API 控制台</Title>
+            <Text type="secondary">市场数据任务 · 执行、启停、状态一站管理</Text>
+          </div>
           <Space wrap>
             <Badge status={serviceError ? "error" : "processing"} text={serviceError ? "状态接口异常" : "服务在线"} />
             <Tooltip title="刷新状态与统计">
@@ -423,6 +559,16 @@ function ApiConsolePage() {
         </Header>
 
         <Content className={styles.content}>
+          {showReutersPipeline ? (
+            <ReutersPipelinePanel
+              status={reutersStatus}
+              loading={reutersStatusLoading}
+              error={reutersStatusError}
+              testing={reutersTesting}
+              onTest={() => void testReutersPipelines()}
+              onRefresh={() => void refreshReutersStatus()}
+            />
+          ) : <>
           <Row gutter={[16, 16]} className={styles.overviewRow}>
             <Col xs={24} sm={8} xl={6}>
               <Card className={styles.overviewCard} size="small">
@@ -475,11 +621,32 @@ function ApiConsolePage() {
                   value={intervalFilter}
                   onChange={(value) => setIntervalFilter(value as IntervalCode)}
                 />
+                <Button
+                  icon={<FileTextOutlined />}
+                  type={featureFilter === "AI" ? "primary" : "default"}
+                  aria-pressed={featureFilter === "AI"}
+                  onClick={() => {
+                    const nextFeature = featureFilter === "AI" ? "ALL" : "AI";
+                    setFeatureFilter(nextFeature);
+                    if (nextFeature === "AI") {
+                      setMarketFilter("ALL");
+                      setIntervalFilter("ALL");
+                    }
+                  }}
+                >
+                  报告分析
+                </Button>
                 <Select
                   className={styles.featureSelect}
                   value={featureFilter}
                   options={featureOptions}
-                  onChange={(value) => setFeatureFilter(value as FeatureCode)}
+                  onChange={(value) => {
+                    setFeatureFilter(value as FeatureCode);
+                    if (value === "REUTERS") {
+                      setMarketFilter("ALL");
+                      setIntervalFilter("ALL");
+                    }
+                  }}
                 />
                 <Input
                   allowClear
@@ -514,12 +681,11 @@ function ApiConsolePage() {
               </Row>
             )}
           </Spin>
+          </>}
         </Content>
-      </Layout>
-
       <Drawer
         title={drawerTask?.title ?? "任务详情"}
-        width={Math.min(560, typeof window === "undefined" ? 560 : window.innerWidth - 24)}
+        width="min(560px, calc(100vw - 24px))"
         open={Boolean(drawerTask)}
         onClose={() => setDrawerTask(null)}
         extra={drawerState ? <StatusTag status={drawerState.status} /> : null}
@@ -587,19 +753,5 @@ function ApiConsolePage() {
 }
 
 export default function Home() {
-  return (
-    <ConfigProvider
-      theme={{
-        token: {
-          colorPrimary: "#1677ff",
-          borderRadius: 8,
-          colorBgLayout: "#f5f7fa",
-        },
-      }}
-    >
-      <AntApp>
-        <ApiConsolePage />
-      </AntApp>
-    </ConfigProvider>
-  );
+  return <ApiConsolePage />;
 }

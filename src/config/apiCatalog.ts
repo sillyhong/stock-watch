@@ -60,7 +60,7 @@ const featureMeta: Record<Exclude<FeatureCode, "ALL">, string> = {
   RISE: "涨幅",
   MAIN_TREND: "主涨段",
   REUTERS: "Reuters",
-  AI: "AI分析",
+  AI: "报告分析",
 };
 
 function timerTask(input: {
@@ -237,14 +237,14 @@ export const apiCatalog: ApiTaskDefinition[] = [
     scheduleLabel: "定时新闻抓取",
   }),
   timerTask({
-    id: "nash-ai-daily",
-    title: "Nash AI 日报",
+    id: "baogao-daily",
+    title: "报告日报",
     market: "ALL",
     marketLabel: "全市场",
     interval: "DAY",
     feature: "AI",
-    endpoint: "/api/nash-ai/daily",
-    purpose: "生成每日 AI 股票分析任务。",
+    endpoint: "/api/baogao/daily",
+    purpose: "抓取 Baogao 国内及海外研报并发送日报，每日查询接口调用不超过 7 次。",
     scheduleLabel: "每日任务",
   }),
 ];

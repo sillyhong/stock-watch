@@ -114,6 +114,7 @@ async function executeReutersTask(options: {
   requestId?: string;
 } = {}): Promise<IReutersRunResult> {
   const { sendEmail = true, trigger = 'scheduled', requestId = 'cron' } = options;
+  const sourceMode = trigger === 'scheduled' ? 'google-news' : 'all';
   const startedAtMs = Date.now();
 
   if (isReutersJobRunning) {
@@ -126,7 +127,7 @@ async function executeReutersTask(options: {
   try {
     const executedAt = dayjs().format('YYYY-MM-DD HH:mm:ss.SSS');
     const date = dayjs().format('YYYY-MM-DD');
-    writeReutersLog('INFO', 'execution_started', { requestId, trigger, executedAt, sendEmail });
+    writeReutersLog('INFO', 'execution_started', { requestId, trigger, sourceMode, executedAt, sendEmail });
     const fetched = buildEmptyTitlesByRegion();
     const fetchedEntries = buildEmptyFetchedEntriesByRegion();
     const translated: IReutersEntriesByRegion = {
@@ -137,10 +138,15 @@ async function executeReutersTask(options: {
     const errors: string[] = [];
 
     const [usResult, chinaResult, iranResult] = await Promise.all([
-      fetchReutersRegion('us'),
-      fetchReutersRegion('china'),
-      fetchReutersRegion('iran'),
+      fetchReutersRegion('us', sourceMode),
+      fetchReutersRegion('china', sourceMode),
+      fetchReutersRegion('iran', sourceMode),
     ]);
+    const sourcesByRegion = {
+      us: usResult.sources ?? { direct: { count: usResult.entries.length }, rsshub: { count: 0 }, googleNews: { count: 0 } },
+      china: chinaResult.sources ?? { direct: { count: chinaResult.entries.length }, rsshub: { count: 0 }, googleNews: { count: 0 } },
+      iran: iranResult.sources ?? { direct: { count: iranResult.entries.length }, rsshub: { count: 0 }, googleNews: { count: 0 } },
+    };
     fetched.us = usResult.titles;
     fetchedEntries.us = usResult.entries;
     if (usResult.errorMessage) {
@@ -176,6 +182,7 @@ async function executeReutersTask(options: {
     );
     writeReutersLog(errors.length > 0 ? 'WARN' : 'INFO', 'fetch_completed', {
       requestId,
+      sourceMode,
       regions: logRegionResults,
       fetchedCounts,
       failedRegions: errors.length,
@@ -256,11 +263,13 @@ async function executeReutersTask(options: {
     const runResult: IReutersRunResult = {
       executedAt,
       date,
+      sourceMode,
       filePath,
       fetched,
       translated,
       incremental,
       incrementalTranslated,
+      sourcesByRegion,
       emailSent,
       emailSkippedReason,
       errors,
@@ -272,12 +281,14 @@ async function executeReutersTask(options: {
       requestId,
       trigger,
       outcome: fetchedCount === 0 ? 'failed' : errors.length > 0 ? 'partial' : 'success',
+      sourceMode,
       durationMs: Date.now() - startedAtMs,
       fetchedCounts: {
         us: runResult.fetched.us.length,
         china: runResult.fetched.china.length,
         iran: runResult.fetched.iran.length,
       },
+        sourcesByRegion,
       incrementalCounts: {
         us: runResult.incremental.us.length,
         china: runResult.incremental.china.length,
@@ -329,11 +340,27 @@ function ensureReutersCron(): void {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'GET') {
-    ensureReutersCron();
-
     const isImmediately = parseBooleanFlag(req.query.isImmediately, false);
     const sendEmail = parseBooleanFlag(req.query.sendEmail, true);
+    const statusOnly = parseBooleanFlag(req.query.statusOnly, false);
+    const skipScheduler = parseBooleanFlag(req.query.skipScheduler, false);
     const requestId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+
+    if (statusOnly) {
+      return res.status(200).json({
+        success: true,
+        action: 'status',
+        schedule: SCHEDULE_LABEL,
+        cronExpression: CRON_EXPRESSION,
+        running: isReutersJobRunning,
+        initialized: Boolean(reutersTask),
+        lastRun: lastReutersRunResult,
+      });
+    }
+
+    if (!skipScheduler || !isImmediately) {
+      ensureReutersCron();
+    }
 
     if (!isImmediately) {
       return res.status(200).json({
