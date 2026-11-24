@@ -91,7 +91,9 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## 部署到生产服务器
 
-执行 `npm run deploy` 会连接生产服务器，确认本地和服务器分支一致、本地提交已推送、服务器没有未提交的已跟踪文件，然后依次执行 `git pull --ff-only`、`npm ci --include=dev`、`npm run build` 和 `pm2 restart stock-watch`，最后检查 `http://127.0.0.1:3008/stock/`。本地未提交及未跟踪文件不会部署。构建前会备份原构建产物；构建失败、缺少 `BUILD_ID` 或健康检查失败时恢复产物，必要时重启旧服务。Git 代码和依赖不会自动回滚。
+执行 `npm run deploy` 会确认本地提交已推送、服务器分支一致且没有未提交的已跟踪文件，然后在临时目录中检出该提交，使用与服务器完全一致的 Node.js 版本安装依赖并在本地构建。脚本将产物上传服务器；仅当依赖锁文件变更或服务器依赖缺失时，才在服务器的独立暂存目录安装依赖。准备完成后拉取代码、切换产物并执行 `pm2 restart stock-watch`，最后检查 `http://127.0.0.1:3008/stock/`。本地未提交及未跟踪文件不会进入构建。
+
+本地需安装与服务器相同版本的 Node.js 和 npm。脚本默认查找当前 Node 或 `~/.nvm/versions/node/`，也可通过 `DEPLOY_NODE_PATH` 指定 Node 可执行文件。服务器使用部署锁阻止并发部署；中断后若锁未释放，应先确认没有部署进行中再清理 `.deploy-lock`。切换或健康检查失败时尝试恢复原代码、依赖和构建产物；失败暂存目录会保留供排查。需要更新服务器依赖时，部署前要求至少 1 GiB 空间。
 
 默认服务器为 `root@43.156.33.21`，项目目录为 `/root/project/stock-watch`，SSH 密钥为 `~/ssh/mac.pem`。可通过 `DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_REMOTE_DIR` 和 `DEPLOY_KEY_PATH` 修改连接参数。脚本使用已有的 SSH `known_hosts` 校验服务器，并临时复制密钥以满足 OpenSSH 的文件权限要求。
 
