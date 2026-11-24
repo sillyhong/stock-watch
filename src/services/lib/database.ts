@@ -2,11 +2,11 @@ import { Sequelize } from 'sequelize';
 
 // 统一使用MySQL数据库配置
 const {
-  MYSQL_HOST = '43.156.33.21',
+  MYSQL_HOST = '127.0.0.1',
   MYSQL_PORT = '3306',
   MYSQL_DATABASE = 'stock',
   MYSQL_USER = 'root',
-  MYSQL_PASSWORD = 'Asd123456!',
+  MYSQL_PASSWORD = '',
 } = process.env;
 const sequelize = new Sequelize(
   MYSQL_DATABASE,

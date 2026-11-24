@@ -1,14 +1,13 @@
+const { loadPlatformEnvironment } = require('./src/services/lib/loadPlatformEnvironment');
+
+loadPlatformEnvironment(__dirname);
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   pageExtensions: ["api.ts", "tsx"],
   basePath: "/stock",
   env: {
     NEXT_PUBLIC_BASE_PATH: "/stock",
-    MYSQL_HOST: "43.156.33.21",
-    MYSQL_PORT: "3306",
-    MYSQL_DATABASE: "stock",
-    MYSQL_USER: "root",
-    MYSQL_PASSWORD: "Asd123456!",
   },
   transpilePackages: [
     "antd",

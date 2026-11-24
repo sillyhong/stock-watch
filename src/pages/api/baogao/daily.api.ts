@@ -8,12 +8,12 @@ import {
   getBaogaoDailyUsage,
   reserveBaogaoDailyCalls,
 } from '@/services/baogaoDailyQuota';
+import { getBaogaoAuthorization } from '@/services/platformConfigService';
 
 export const dynamic = 'force-dynamic';
 
 const DOMESTIC_REPORT_URL = 'https://baogao.joy-func.com/reports/search';
 const FOREIGN_REPORT_URL = 'https://baogao.joy-func.com/reports/foreign-rt/search';
-const BAOGAO_AI_AUTHORIZATION = 'Bearer eyJhbGciOiJIUzUxMiJ9.eyJzdWIiOiI0MDNlNjM0OTVjNWY0ZjVhOTJiYjM2ZmVhYWFlNGExNSIsImRldmljZSI6IjE2Y2M1NmI4MzFlM2NiNzc1ZjBkMjg0YTRiZTczODUwMzMxNjU4NjFhNGFmMTRhOGYwYTM1Yzg1MDIyMTI3YWUiLCJpYXQiOjE3OTU0MDAzMjIsImV4cCI6MTc5NTQ4NjcyMn0.izxRfbJE7cl0QDltoqlHu8ENGCyr7X6qnQv5zwqgbe_ZgmdOo73XgGFuyUOT4zSFvxNJaOhcmY0drZbGF7Nvcw';
 const FOREIGN_INSTITUTIONS = ['Goldman Sachs', 'JPMorgan', 'Nomura', 'HSBC', 'Morgan Stanley'];
 const RECIPIENT_EMAIL = '1175166300@qq.com';
 const CRON_EXPRESSION = '0 6 * * *';
@@ -129,7 +129,9 @@ async function fetchBaogaoPage(
   url: string,
   body: Record<string, unknown>,
   callAlreadyReserved = false,
+  reservedAuthorization?: string,
 ): Promise<IBaogaoResponse> {
+  const authorization = reservedAuthorization ?? await getBaogaoAuthorization();
   if (!callAlreadyReserved) {
     await reserveBaogaoDailyCalls();
   }
@@ -138,7 +140,7 @@ async function fetchBaogaoPage(
     method: 'POST',
     headers: {
       accept: 'application/json, text/plain, */*',
-      authorization: BAOGAO_AI_AUTHORIZATION,
+      authorization,
       'content-type': 'application/json',
       origin: 'https://baogao.joy-func.com',
       referer: 'https://baogao.joy-func.com/',
@@ -237,10 +239,11 @@ async function fetchBaogaoReportsWithinDailyLimit(
   foreign: IBaogaoFetchResult;
   usage: Awaited<ReturnType<typeof getBaogaoDailyUsage>>;
 }> {
+  const authorization = await getBaogaoAuthorization();
   const usageAfterInitialReservation = await reserveBaogaoDailyCalls(2);
   const [domesticFirstPage, foreignFirstPage] = await Promise.all([
-    fetchBaogaoPage(DOMESTIC_REPORT_URL, { ...domesticBody, pageNum: 1 }, true),
-    fetchBaogaoPage(FOREIGN_REPORT_URL, { ...foreignBody, pageNum: 1 }, true),
+    fetchBaogaoPage(DOMESTIC_REPORT_URL, { ...domesticBody, pageNum: 1 }, true, authorization),
+    fetchBaogaoPage(FOREIGN_REPORT_URL, { ...foreignBody, pageNum: 1 }, true, authorization),
   ]);
   const domestic = createBaogaoSearchState(DOMESTIC_REPORT_URL, domesticBody, domesticFirstPage);
   const foreign = createBaogaoSearchState(FOREIGN_REPORT_URL, foreignBody, foreignFirstPage);
