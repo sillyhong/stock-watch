@@ -86,14 +86,22 @@ function main() {
     }
 
     console.log('Pulling the verified revision, installing dependencies and building.');
-    remote(`set -eu; cd ${directory}; git pull --ff-only; ` +
+    const deploy = `set -eu; cd ${directory}; git pull --ff-only; ` +
       `test "$(git rev-parse HEAD)" = ${quote(commit)} || { echo 'Deployed revision mismatch' >&2; exit 1; }; ` +
-      'npm ci --include=dev; npm run build; pm2 restart stock-watch', { stdio: 'inherit' });
-
-    console.log('Checking the application after restart.');
-    const health = `set -eu; n=0; until curl -fsSL --max-time 5 -o /dev/null ${quote(healthUrl)}; do ` +
-      'n=$((n + 1)); if [ "$n" -ge 10 ]; then echo "Health check failed" >&2; exit 1; fi; sleep 3; done';
-    remote(health, { stdio: 'inherit' });
+      'npm ci --include=dev; ' +
+      'backup=$(mktemp -d .deploy-next.XXXXXX); restart_attempted=0; ' +
+      'if [ -d .next ]; then mv .next "$backup/previous"; fi; ' +
+      'restore() { if [ -d "$backup/previous" ]; then ' +
+        'if [ -e .next ]; then mv .next "$backup/incomplete"; fi; ' +
+        'mv "$backup/previous" .next; echo "Previous build restored" >&2; ' +
+        'if [ "$restart_attempted" -eq 1 ]; then pm2 restart stock-watch || true; fi; fi; }; ' +
+      'trap restore EXIT; npm run build; ' +
+      'test -s .next/BUILD_ID || { echo "Build did not produce .next/BUILD_ID" >&2; exit 1; }; ' +
+      'restart_attempted=1; pm2 restart stock-watch; ' +
+      `n=0; until curl -fsSL --max-time 5 -o /dev/null ${quote(healthUrl)}; do ` +
+        'n=$((n + 1)); if [ "$n" -ge 10 ]; then echo "Health check failed" >&2; exit 1; fi; sleep 3; done; ' +
+      'trap - EXIT; rm -rf -- "$backup"';
+    remote(deploy, { stdio: 'inherit' });
     console.log(`Deployment completed: ${commit.slice(0, 12)}`);
   } finally {
     if (fs.existsSync(temporaryKey)) fs.unlinkSync(temporaryKey);
