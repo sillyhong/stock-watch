@@ -89,6 +89,14 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+## 部署到生产服务器
+
+执行 `npm run deploy` 会连接生产服务器，确认本地和服务器分支一致、本地提交已推送、服务器没有未提交的已跟踪文件，然后依次执行 `git pull --ff-only`、`npm ci --include=dev`、`npm run build` 和 `pm2 restart stock-watch`，最后检查 `http://127.0.0.1:3008/stock/`。本地未提交及未跟踪文件不会部署。构建失败时不会执行 PM2 重启；脚本不自动回滚代码或构建产物。
+
+默认服务器为 `root@43.156.33.21`，项目目录为 `/root/project/stock-watch`，SSH 密钥为 `~/ssh/mac.pem`。可通过 `DEPLOY_HOST`、`DEPLOY_USER`、`DEPLOY_REMOTE_DIR` 和 `DEPLOY_KEY_PATH` 修改连接参数。脚本使用已有的 SSH `known_hosts` 校验服务器，并临时复制密钥以满足 OpenSSH 的文件权限要求。
+
+服务器缺少 `config/.env.production.local` 时，脚本会从本地同路径复制该文件并设置为仅所有者可读写；已有文件不会覆盖。请先填写生产数据库配置，相关说明见 [平台配置](database/README-platform-config.md)。部署只更新 Git 跟踪的代码，保留服务器的 `config/`、Baogao 每日调用计数及 Reuters 数据文件；不会清除共享 Nginx 缓存。
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
