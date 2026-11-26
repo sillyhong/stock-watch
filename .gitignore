@@ -43,4 +43,5 @@ next-env.d.ts
 /.baogao-api-usage.json*
 .gitignore
 src/pages/data/reuters/*.json
+src/pages/data/futu-mappings/
 

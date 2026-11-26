@@ -30,7 +30,7 @@ async function executeScheduledUSBacktrendTask(): Promise<unknown[] | null> {
     try {
       // 执行美股15分钟RSI回测请求
       const usResult = await fetchUSRSI({
-        klt: EKLT['15M'],
+        klt: EKLT['30M'],
         currentDate: dayjs(),
         isBacktesting: true,
       });
@@ -60,7 +60,7 @@ async function executeManualUSBacktrendTask(triggeredBy?: string): Promise<unkno
     console.log('🔧 开始手动执行美股15分钟RSI回测任务...');
     
     const result = await fetchUSRSI({
-      klt: EKLT['15M'],
+      klt: EKLT['30M'],
       sendEmail: false,
       isBacktesting: true
     });

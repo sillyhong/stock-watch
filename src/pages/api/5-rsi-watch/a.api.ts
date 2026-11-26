@@ -49,16 +49,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
         
         console.log('执行 RSI 监控任务:', dayjs().tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss'));
-        fetchARSI({
+        void fetchARSI({
           reqType: EReqType.EASY_MONEY,
           klt: EKLT['5M'],
           currentDate: dayjs()
-        })
-        fetchARSI({
-          reqType: EReqType.FU_TU,
-          klt: EKLT['5M'],
-          currentDate: dayjs()
-        })
+        }).catch((error) => console.error('[5m-rsi-a] 东方财富任务失败:', error));
       }, {
         timezone: "Asia/Shanghai",
         scheduled: true

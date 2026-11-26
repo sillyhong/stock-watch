@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { AppstoreOutlined, BarChartOutlined, FileSearchOutlined, FileTextOutlined, GlobalOutlined } from "@ant-design/icons";
-import { Layout, Menu, Typography } from "antd";
+import { AppstoreOutlined, BarChartOutlined, DatabaseOutlined, FileSearchOutlined, FileTextOutlined, GlobalOutlined, MenuOutlined } from "@ant-design/icons";
+import { Button, Drawer, Layout, Menu, Typography } from "antd";
 import type { MenuProps } from "antd";
 import { usePathname, useRouter } from "next/navigation";
 import { apiCatalog, marketOptions, type FeatureCode, type MarketCode } from "@/config/apiCatalog";
@@ -32,10 +32,13 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   const [featureFilter, setFeatureFilter] = useState<FeatureCode>("ALL");
   const [showReutersPipeline, setShowReutersPipeline] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const routePath = (pathname ?? "/").replace(/^\/stock(?=\/|$)/, "") || "/";
   const selectedKey = routePath === "/boards"
     ? "BOARDS"
+    : routePath === "/stock-pools"
+      ? "STOCK_POOLS"
     : routePath === "/log-analyze"
       ? "LOG_ANALYZE"
       : showReutersPipeline
@@ -49,6 +52,7 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
     { key: "REUTERS", icon: <GlobalOutlined />, label: "Reuters" },
     { key: "REPORT_ANALYSIS", icon: <FileTextOutlined />, label: "报告分析" },
     { key: "BOARDS", icon: <BarChartOutlined />, label: "板块" },
+    { key: "STOCK_POOLS", icon: <DatabaseOutlined />, label: "配置池" },
     { key: "LOG_ANALYZE", icon: <FileSearchOutlined />, label: "日志分析" },
     { type: "divider" },
     {
@@ -59,6 +63,11 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
   ], []);
 
   function handleMenuClick({ key }: { key: string }) {
+    setMobileMenuOpen(false);
+    if (key === "STOCK_POOLS") {
+      router.push("/stock-pools");
+      return;
+    }
     if (key === "BOARDS") {
       router.push("/boards");
       return;
@@ -131,6 +140,13 @@ export default function PlatformShell({ children }: { children: ReactNode }) {
           )}
         </Layout.Sider>
         <Layout className={styles.main}>
+          <div className={styles.mobileHeader}>
+            <Button aria-label="打开导航菜单" icon={<MenuOutlined />} onClick={() => setMobileMenuOpen(true)} />
+            <span className={styles.mobileBrand}>Stock Watch</span>
+          </div>
+          <Drawer title="Stock Watch" placement="left" width="min(280px, 85vw)" open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} className={styles.mobileDrawer}>
+            <Menu className={styles.menu} mode="inline" theme="dark" selectedKeys={[selectedKey]} items={items} onClick={handleMenuClick} />
+          </Drawer>
           <Layout.Content className={styles.content}>{children}</Layout.Content>
         </Layout>
       </Layout>

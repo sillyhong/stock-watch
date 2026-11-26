@@ -16,6 +16,9 @@ const nextConfig = {
     "@ant-design/colors",
   ],
   webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals.push({ typescript: "commonjs typescript" });
+    }
     config.resolve.alias = {
       ...config.resolve.alias,
       "antd/lib": "antd/es",

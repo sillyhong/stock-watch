@@ -7,6 +7,11 @@ const CONFIG_KEYS = new Set([
   'MYSQL_DATABASE',
   'MYSQL_USER',
   'MYSQL_PASSWORD',
+  'FUTU_FALLBACK_ENABLED',
+  'FUTU_QUOTE_PROVIDER',
+  'FUTU_CLIENT_ID',
+  'FUTU_REFRESH_TOKEN',
+  'FUTU_ACCESS_TOKEN',
 ]);
 
 function parseValue(raw, file, lineNumber) {

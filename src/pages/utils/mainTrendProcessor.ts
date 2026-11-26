@@ -16,6 +16,7 @@ import {
 import { calculateChipConcentrationDetails } from './config';
 import { a_beijiaosuo_cn } from '../data/astock/beijiaosuo';
 import { EStockType } from '../interface';
+import { fetchFutuKlines, futuFallbackEnabled } from '@/services/futuQuoteService';
 
 /**
  * 主涨段检测结果
@@ -294,7 +295,19 @@ async function fetchStockData(
   lmt: number,
   fqt: number = 1
 ) {
+  const fallback = async () => {
+    const days = klt === 103 ? lmt * 40 : klt === 102 ? lmt * 10 : klt === 101 ? lmt * 3 : Math.ceil(lmt / ({ 5: 48, 15: 16, 30: 8, 60: 4 }[klt] || 4)) * 3 + 20;
+    try {
+      const data = await fetchFutuKlines(secid, klt, { start: dayjs().subtract(days, 'day').format('YYYY-MM-DD'), end: dayjs().format('YYYY-MM-DD'), limit: lmt, adjustment: fqt });
+      console.log(`[main-trend] 富途兜底成功 secid=${secid} klt=${klt} bars=${data.klines.length}`);
+      return data;
+    } catch (error) {
+      console.error(`[main-trend] 富途兜底失败 secid=${secid} klt=${klt}:`, error instanceof Error ? error.message : String(error));
+      throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
+    }
+  };
   if (isEastmoneyCircuitOpen()) {
+    if (futuFallbackEnabled()) return fallback();
     throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
   }
 
@@ -315,7 +328,8 @@ async function fetchStockData(
       try {
         const response = await requestEastmoneyKline(url);
         resetEastmoneyCircuit();
-        return response?.data?.data;
+        if (!response?.data?.data?.klines?.length) throw new Error('东方财富返回空 K 线');
+        return response.data.data;
       } catch (error) {
         lastError = error;
         if (attempt === 0 && isEastmoneyCircuitBreakError(error)) {
@@ -329,7 +343,9 @@ async function fetchStockData(
             eastmoneyUserAgent = browserResponse.userAgent;
             eastmoneyCookieRefreshedAt = Date.now();
             resetEastmoneyCircuit();
-            return (browserResponse.data as { data?: unknown } | null)?.data;
+            const data = (browserResponse.data as { data?: { klines?: string[] } } | null)?.data;
+            if (!data?.klines?.length) throw new Error('东方财富返回空 K 线');
+            return data;
           } catch (browserError) {
             lastError = browserError;
             continue;
@@ -342,6 +358,10 @@ async function fetchStockData(
     throw lastError;
   } catch (error) {
     console.error(`获取股票数据失败 (secid=${secid}, klt=${klt}):`, getEastmoneyErrorSummary(error));
+    if (futuFallbackEnabled()) {
+      if (isEastmoneyCircuitBreakError(error)) openEastmoneyCircuit();
+      return fallback();
+    }
     if (isEastmoneyCircuitBreakError(error)) {
       openEastmoneyCircuit();
       throw new Error(EASTMONEY_CIRCUIT_BREAK_ERROR);
@@ -760,7 +780,7 @@ export async function detectMainTrendBatch(
   // 限流后要立即熔断，使用单只串行执行避免继续放大请求
   const batchSize = 8;
   for (let i = 0; i < stocks.length; i += batchSize) {
-    if (isEastmoneyCircuitOpen()) {
+    if (isEastmoneyCircuitOpen() && !futuFallbackEnabled()) {
       console.warn('东方财富请求已熔断，停止后续主涨段检测');
       break;
     }
@@ -779,7 +799,7 @@ export async function detectMainTrendBatch(
     } catch (error) {
       if (isEastmoneyCircuitBreakError(error)) {
         openEastmoneyCircuit();
-        console.warn('东方财富返回 socket hang up/ECONNRESET，已触发熔断并停止后续请求');
+        console.warn(futuFallbackEnabled() ? '行情请求及富途兜底失败，停止后续主涨段检测' : '东方财富返回 socket hang up/ECONNRESET，已触发熔断并停止后续请求');
         break;
       }
       throw error;

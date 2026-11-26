@@ -1,0 +1,23 @@
+.page { max-width: 1500px; margin: 0 auto; padding: 34px; }
+.heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.heading h2 { margin: 7px 0 !important; letter-spacing: -0.04em; }
+.heading p, .subtle { color: #9ab0c7; font-size: 13px; }
+.heading p { margin: 0; }
+.eyebrow { color: #61c9c1; font-size: 11px; font-weight: 700; letter-spacing: 0.15em; }
+.panel { background: #0c1c30; border: 1px solid #24405d; border-radius: 14px; overflow: hidden; }
+.marketTabs { margin-bottom: 4px; }
+.marketCount { display: inline-block; min-width: 22px; margin-left: 8px; padding: 0 6px; border-radius: 10px; background: rgba(19, 194, 194, .12); color: #8ee2d8; font-size: 11px; text-align: center; }
+.sourceSummary { display: flex; align-items: center; flex-wrap: nowrap; max-width: 100%; overflow: hidden; }
+.sourceSummary :global(.ant-tag) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.alert { margin-bottom: 20px; }
+.preview { background: #12342c; color: #92dfc0; padding: 14px 16px; border-radius: 8px; margin: 20px 0; }
+.sourceHeader { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 22px 0 12px; }
+.sourceCount { margin-left: 9px; color: #9ab0c7; font-size: 12px; }
+.options { display: grid; gap: 6px; width: 100%; max-height: min(46vh, 500px); margin-top: 12px; overflow-y: auto; }
+.option { display: flex; align-items: center; gap: 8px; margin: 0 !important; padding: 9px 12px; border: 1px solid #24405d; border-radius: 7px; }
+.option :global(.ant-checkbox + span) { min-width: 0; }
+.optionContent { display: block; min-width: 0; overflow-wrap: anywhere; }
+.optionContent small { display: block; color: #9ab0c7; margin-top: 2px; }
+.optionPagination { margin-top: 14px; text-align: right; }
+@media (max-width: 768px) { .page { padding: 20px 12px; } .heading { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 420px) { .sourceHeader { align-items: flex-start; flex-direction: column; } .sourceCount { display: block; margin: 3px 0 0; } }

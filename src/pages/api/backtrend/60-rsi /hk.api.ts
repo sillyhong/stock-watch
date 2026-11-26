@@ -30,7 +30,7 @@ async function executeScheduledHKBacktrendTask(): Promise<unknown[] | null> {
     try {
       // 执行港股15分钟RSI回测请求
       const hkResult = await fetchHKRSI({
-        klt: EKLT['15M'],
+        klt: EKLT['60M'],
         currentDate: dayjs(),
         isBacktesting: true,
       });
@@ -60,7 +60,7 @@ async function executeManualHKBacktrendTask(triggeredBy?: string): Promise<unkno
     console.log('🔧 开始手动执行港股15分钟RSI回测任务...');
     
     const result = await fetchHKRSI({
-      klt: EKLT['15M'],
+      klt: EKLT['60M'],
       sendEmail: true,
       isBacktesting: true
     });

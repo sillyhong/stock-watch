@@ -27,30 +27,12 @@ async function executeScheduledTask(): Promise<unknown[] | null> {
     console.log('🚀 开始执行A股日RSI定时任务...');
     
     const results: unknown[] = [];
-    
-    try {
-      // 执行EASY_MONEY请求
-      const easyMoneyResult = await fetchARSI({
-        reqType: EReqType.EASY_MONEY,
-        klt: EKLT.DAY,
-        currentDate: dayjs()
-      });
-      if (easyMoneyResult) results.push(easyMoneyResult);
-    } catch (error) {
-      console.error('EASY_MONEY请求失败:', error);
-    }
-
-    try {
-      // 执行FU_TU请求
-      const futuResult = await fetchARSI({
-        reqType: EReqType.FU_TU,
-        klt: EKLT.DAY,
-        currentDate: dayjs()
-      });
-      if (futuResult) results.push(futuResult);
-    } catch (error) {
-      console.error('FU_TU请求失败:', error);
-    }
+    const easyMoneyResult = await fetchARSI({
+      reqType: EReqType.EASY_MONEY,
+      klt: EKLT.DAY,
+      currentDate: dayjs()
+    });
+    if (easyMoneyResult) results.push(easyMoneyResult);
 
     console.log('✅ A股日RSI定时任务执行完成');
     return results;

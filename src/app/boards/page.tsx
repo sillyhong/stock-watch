@@ -7,11 +7,13 @@ import { pinyin } from "pinyin-pro";
 import styles from "./page.module.css";
 
 type Stock = { code: string; market: number; name: string; price: number | null; changePercent: number | null };
-type BoardResponse = { success: boolean; error?: string; bkCode: string; count: number; stocks: Stock[]; filePath: string | null };
+type MappingStatus = { fileName: string; status: "running" | "complete" | "partial" | "failed"; total: number; completed: number; matched: number; failed: number; error?: string; failureSamples?: Array<{ secid: string; error: string }> };
+type BoardResponse = { success: boolean; error?: string; bkCode: string; count: number; stocks: Stock[]; filePath: string | null; futuMapping?: MappingStatus | null };
 type Board = { code: string; name: string; categories: string[]; industryLevels?: number[] };
 
 const API = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/eastmoney/board-stocks`;
 const BOARDS_API = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/eastmoney/boards`;
+const MAPPING_API = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/api/eastmoney/futu-mapping`;
 const presets = [
   { code: "BK1128", label: "CPO概念", file: "cpo" },
   { code: "BK0546", label: "玻璃玻纤", file: "boliboxian" },
@@ -35,6 +37,7 @@ function BoardContent() {
   const [input, setInput] = useState("");
   const [fileName, setFileName] = useState("cpo");
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const [result, setResult] = useState<BoardResponse | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
@@ -45,6 +48,22 @@ function BoardContent() {
   const [boardsError, setBoardsError] = useState("");
   const [boardsRefreshKey, setBoardsRefreshKey] = useState(0);
   const [treeValue, setTreeValue] = useState<string>();
+  const [mapping, setMapping] = useState<MappingStatus | null>(null);
+
+  useEffect(() => {
+    if (!mapping || mapping.status !== "running") return;
+    const controller = new AbortController();
+    const timer = setInterval(() => {
+      fetch(`${MAPPING_API}?fileName=${encodeURIComponent(mapping.fileName)}`, { signal: controller.signal, cache: "no-store" })
+        .then(async (response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const data = await response.json() as { mapping?: MappingStatus };
+          if (data.mapping) setMapping(data.mapping);
+        })
+        .catch(() => { /* Keep the last status; the next poll will retry. */ });
+    }, 3000);
+    return () => { clearInterval(timer); controller.abort(); };
+  }, [mapping?.fileName, mapping?.status]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,6 +123,7 @@ function BoardContent() {
     } else {
       setFileName(defaultFile(next, board?.name));
       setQuery("");
+      setPage(1);
       setCode(next);
     }
   }
@@ -117,6 +137,7 @@ function BoardContent() {
       const data = await response.json() as BoardResponse;
       if (!response.ok || !data.success) throw new Error(data.error || `保存失败（HTTP ${response.status}）`);
       setResult(data);
+      setMapping(data.futuMapping ?? null);
       message.success(`已保存 ${data.count} 只股票至 ${data.filePath}`);
     } catch (reason) {
       message.error(reason instanceof Error ? reason.message : "保存失败");
@@ -175,8 +196,9 @@ function BoardContent() {
           </div>
         </Card>
         {error && <Alert className={styles.alert} type="error" showIcon message="板块数据获取失败" description={error} />}
-        <Card className={styles.list} title={<Space><span>成分股列表</span><Tag color="cyan">{code}</Tag><Typography.Text type="secondary">{result ? `${result.count} 只股票` : ""}</Typography.Text></Space>} extra={<Input aria-label="搜索股票" prefix={<SearchOutlined />} placeholder="搜索名称或代码" value={query} onChange={(event) => setQuery(event.target.value)} allowClear />}>
-          <Table<Stock> rowKey={(stock) => `${stock.market}.${stock.code}`} columns={columns} dataSource={filtered} loading={loading} pagination={{ pageSize: 25, showSizeChanger: false, showTotal: (total) => `共 ${total} 只` }} scroll={{ x: 560 }} locale={{ emptyText: error ? "暂无数据，请重试" : "没有匹配的股票" }} />
+      {mapping && <Alert className={styles.alert} type={mapping.status === "complete" ? "success" : mapping.status === "running" ? "info" : "warning"} showIcon message={`${mapping.fileName}.ts 的富途映射${mapping.status === "running" ? "生成中" : mapping.status === "complete" ? "已生成" : "未完全生成"}：${mapping.matched}/${mapping.total} 只`} description={mapping.status === "running" ? `已处理 ${mapping.completed}/${mapping.total}，可关闭页面，任务在服务器后台继续。` : mapping.error || (mapping.failed ? `失败 ${mapping.failed} 只，不影响东方财富股票池。${mapping.failureSamples?.map((item) => `${item.secid}: ${item.error}`).join("；") ?? ""}` : "后续富途兜底会优先使用该映射；请求签名每次动态生成，不写入文件。")} />}
+        <Card className={styles.list} title={<Space><span>成分股列表</span><Tag color="cyan">{code}</Tag><Typography.Text type="secondary">{result ? `${result.count} 只股票` : ""}</Typography.Text></Space>} extra={<Input aria-label="搜索股票" prefix={<SearchOutlined />} placeholder="搜索名称或代码" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} allowClear />}>
+          <Table<Stock> rowKey={(stock) => `${stock.market}.${stock.code}`} columns={columns} dataSource={filtered} loading={loading} pagination={{ current: page, onChange: setPage, pageSize: 25, showSizeChanger: false, showTotal: (total) => `共 ${total} 只` }} scroll={{ x: 560 }} locale={{ emptyText: error ? "暂无数据，请重试" : "没有匹配的股票" }} />
           <div className={styles.note}>行情来自东方财富，价格与涨跌幅可能延迟。浏览不会修改股票文件。</div>
         </Card>
       </div>

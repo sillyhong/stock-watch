@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (isEmpty(USTask)) {
       USTask = cron.schedule('*/30 22-23,0-4 * * 1-5', ()=>{
         fetchUSRSI({
-          klt: EKLT['15M'],
+          klt: EKLT['30M'],
           currentDate: dayjs()
         })
       }, {
@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       if(isImmediately) {
-        rsiData = await fetchUSRSI({ klt: EKLT['15M'], sendEmail: false})
+        rsiData = await fetchUSRSI({ klt: EKLT['30M'], sendEmail: false})
       }
     }
     res.status(200).json({ message: 'Cron job set to check US RSI every 30 minutes.',data: rsiData });

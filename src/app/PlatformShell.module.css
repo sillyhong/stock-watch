@@ -108,8 +108,43 @@
   background: transparent !important;
 }
 
+.mobileHeader {
+  display: none;
+}
+
+.mobileDrawer :global(.ant-drawer-header),
+.mobileDrawer :global(.ant-drawer-body) {
+  background: #09192a;
+}
+
+.mobileDrawer :global(.ant-drawer-body) {
+  padding: 12px 0;
+}
+
+.mobileDrawer :global(.ant-drawer-title),
+.mobileDrawer :global(.ant-drawer-close) {
+  color: #f1f7ff;
+}
+
 @media (max-width: 768px) {
-  .brand {
-    padding-inline: 17px;
+  .sider {
+    display: none !important;
+  }
+
+  .mobileHeader {
+    display: flex;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: #09192a;
+    border-bottom: 1px solid rgba(133, 167, 202, 0.14);
+  }
+
+  .mobileBrand {
+    color: #f1f7ff;
+    font-weight: 700;
   }
 }

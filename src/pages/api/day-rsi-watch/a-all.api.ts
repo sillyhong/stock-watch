@@ -61,7 +61,7 @@ import { EStockType, EKLT } from '../../interface';
 import { EReqType } from '../../utils/config';
 // 导入邮件发送功能
 import { sendRSIEmailNotification }  from '../../utils/emailNotifier';
-import { EasyStockLists } from '@/pages/utils/stockList';
+import { getTaskStocks } from '@/services/stockPoolService';
 
 /**
  * 东方财富API股票数据结构
@@ -131,7 +131,7 @@ const MARKET_CONFIGS: Record<EMarketType, IMarketConfig> = {
   [EMarketType.BEIJING]: {
     name: '北交所',
     fileName: 'beijiaosuo.json', 
-    prefix: '1.',
+    prefix: '0.',
     description: '北京证券交易所'
   },
   [EMarketType.ALL]: {
@@ -170,8 +170,6 @@ async function readStockDataFromFile(filePath: string, marketName: string): Prom
       return [];
     }
 
-    const filterAStockList = EasyStockLists[EKLT.DAY][EStockType.A]
-
     // 提取股票代码，过滤无效数据
     const stockCodes = stockData
       .filter(stock => 
@@ -179,8 +177,7 @@ async function readStockDataFromFile(filePath: string, marketName: string): Prom
         typeof stock.f12 === 'string' && 
         !stock?.f14?.includes('ST') && 
         !stock?.f14?.includes('退市') && 
-        !stock?.f14?.endsWith('退') && 
-        !filterAStockList.includes(stock.f12) // day会返回，不需要重复拉取了
+        !stock?.f14?.endsWith('退')
       )
       .map(stock => stock.f12)
       .filter(code => code.trim().length > 0);
@@ -201,6 +198,7 @@ async function readStockDataFromFile(filePath: string, marketName: string): Prom
  */
 async function getMarketStocks(markets: EMarketType[] = [EMarketType.ALL]): Promise<string[]> {
   const dataDir = path.join(process.cwd(), 'src/pages/data/astock');
+  const monitoredStocks = new Set(await getTaskStocks('day-rsi-watch-a', { allowEmpty: true }));
   
   // 如果包含ALL，则获取所有市场
   const targetMarkets = markets.includes(EMarketType.ALL) 
@@ -219,7 +217,7 @@ async function getMarketStocks(markets: EMarketType[] = [EMarketType.ALL]): Prom
     
     try {
       const rawStocks = await readStockDataFromFile(filePath, config.name);
-      const prefixedStocks = rawStocks.map(code => `${config.prefix}${code}`);
+      const prefixedStocks = rawStocks.map(code => `${config.prefix}${code}`).filter(code => !monitoredStocks.has(code));
       
       stockCollections[config.name] = prefixedStocks;
       allStocks.push(...prefixedStocks);

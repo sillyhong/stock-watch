@@ -27,7 +27,7 @@
 import dayjs, { Dayjs } from "dayjs";
 import { detectMainTrendBatch, IMainTrendResult } from "./mainTrendProcessor";
 import { EStockType, EKLT } from "../interface";
-import { EasyStockLists } from "./stockList";
+import { getTaskStocks } from "@/services/stockPoolService";
 import { EReqType } from "./config";
 import { QQMail } from "./emailNotifier";
 import { 
@@ -377,7 +377,8 @@ export const fetchAMainTrend = async (params: IFetchMainTrendParams = {}): Promi
     
     // ================================= 获取股票列表 =================================
     // 使用日线的股票列表（根据市场类型）
-    const stockLists = EasyStockLists[config.eltConfig]?.[config.marketType];
+    const interval = config.eltConfig === EKLT.DAY ? 'day' : `${config.eltConfig}m`;
+    const stockLists = await getTaskStocks(`main-trend-${interval}-${config.marketType.toLowerCase()}`);
     
     if (!stockLists || stockLists.length === 0) {
       throw new Error(`未找到${marketName}股票列表`);

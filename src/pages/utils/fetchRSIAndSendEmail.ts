@@ -61,7 +61,8 @@
 import dayjs, { Dayjs } from "dayjs";
 import { EStockType, EKLT, IFetchUSRSIParams } from "../interface";
 import { IFutuStockInfo } from "../interface/futu";
-import { EasyStockLists, FutuStockLists } from "./stockList";
+import { FutuStockLists } from "./stockList";
+import { getTaskStocks } from "@/services/stockPoolService";
 import { BATCH_DELAY_RANGE, EReqType, PrePullDayConfig } from "./config";
 import { sortByStockName } from "./sort";
 import { batchFetchStockData, logRequestStatistics } from "./dataFetcher";
@@ -94,9 +95,20 @@ const prehandleFetch = async ({
 }) => {
   try {
     // 根据请求类型选择对应的股票列表
-    const stockLists = reqType === EReqType.EASY_MONEY 
-      ? EasyStockLists[klt as keyof typeof EasyStockLists]?.[stockType]
-      : FutuStockLists[klt as keyof typeof FutuStockLists]?.[stockType];
+    const interval = klt === EKLT.DAY ? "day" : `${klt}m`;
+    const taskId = isBacktesting ? `backtrend-${interval}-${stockType.toLowerCase()}` : klt === EKLT.DAY ? `day-rsi-watch-${stockType.toLowerCase()}` : `rsi-watch-${interval}-${stockType.toLowerCase()}`;
+    const configuredStocks = await getTaskStocks(taskId);
+    let stockLists: (string | IFutuStockInfo)[] = configuredStocks;
+    if (reqType === EReqType.FU_TU) {
+      const configuredCodes = new Set(configuredStocks.map((stock) => stock.split('.')[1]));
+      const legacyStocks = FutuStockLists[klt as keyof typeof FutuStockLists]?.[stockType] ?? [];
+      stockLists = legacyStocks.flat().filter((stock) =>
+        !!stock && typeof stock === 'object' && 'stockCode' in stock &&
+        configuredCodes.has(String(stock.stockCode)) && !!stock.stockId && !!stock.quoteToken,
+      ).map((stock) => ({ ...stock, stockId: String(stock.stockId) }));
+      console.log(`[${stockType}][${klt}] 富途旧映射匹配 ${stockLists.length}/${configuredCodes.size} 只；未匹配股票无法使用富途`);
+      if (!stockLists.length) throw new Error(`富途没有可用的股票映射: ${taskId}`);
+    }
 
     if (!stockLists) {
       throw new Error(`未找到对应的股票列表: reqType=${reqType}, klt=${klt}, stockType=${stockType}`);
@@ -182,11 +194,15 @@ export const fetchRSIAndSendEmail = async ({
       stockType: stockType.toString(),
       klt,
       startFormatDay,
+      endFormatDay: dayjs(currentDate).format('YYYY-MM-DD'),
       batchDelayRange
     });
 
     // 打印请求统计
     logRequestStatistics(reqType, fetchResult, stockType.toString(), klt);
+    if (fetchResult.totalRequestCount > 0 && fetchResult.successfulRequestCount === 0) {
+      throw new Error('所有股票行情请求均失败，请检查东方财富和富途兜底日志');
+    }
 
     // ================================= RSI数据处理 =================================
     const processResult = await processRSIDataAsync({
@@ -305,11 +321,15 @@ export const fetchRSIDataWithDetails = async ({
       stockType: stockType.toString(),
       klt,
       startFormatDay,
+      endFormatDay: dayjs(currentDate).format('YYYY-MM-DD'),
       batchDelayRange
     });
 
     // 打印请求统计
     logRequestStatistics(reqType, fetchResult, stockType.toString(), klt);
+    if (fetchResult.totalRequestCount > 0 && fetchResult.successfulRequestCount === 0) {
+      throw new Error('所有股票行情请求均失败，请检查东方财富和富途兜底日志');
+    }
 
     // ================================= RSI数据处理 =================================
     const processResult = await processRSIDataAsync({

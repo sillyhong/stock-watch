@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { startFutuMappingJob, type FutuMappingStatus } from '@/services/futuMappingService';
 
 const API_URL = 'https://push2.eastmoney.com/api/qt/clist/get';
 const PAGE_SIZE = 100;
@@ -101,8 +102,12 @@ async function fetchBoardPage(bkCode: string, page: number): Promise<{ total: nu
 
     return { total, stocks };
   } catch (error) {
+    const cause = error instanceof Error && 'cause' in error ? error.cause : undefined;
+    const causeCode = cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : '';
     const message = error instanceof Error
-      ? error.name === 'AbortError' ? `Request timed out after ${REQUEST_TIMEOUT_MS}ms` : error.message
+      ? error.name === 'AbortError' ? `Request timed out after ${REQUEST_TIMEOUT_MS}ms`
+        : error.message === 'fetch failed' ? `东方财富连接失败${causeCode ? ` (${causeCode})` : ''}，请检查服务器网络或上游限制；原股票池文件未修改`
+          : error.message
       : String(error);
     throw new EastmoneyRequestError(`${bkCode} page ${page}: ${message}`);
   } finally {
@@ -131,12 +136,34 @@ async function fetchAllBoardStocks(bkCode: string): Promise<IEastmoneyStockItem[
   return uniqueStocks;
 }
 
-function formatBoardStocksAsTs(stocks: IEastmoneyStockItem[], exportName: string): string {
+async function fetchBoardName(bkCode: string): Promise<string> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 8_000);
+  try {
+    const response = await fetch(`https://quote.eastmoney.com/bk/90.${bkCode}.html`, { signal: controller.signal, headers: { 'user-agent': 'Mozilla/5.0' } });
+    if (!response.ok) return '';
+    const html = await response.text();
+    const match = html.match(/<title>\s*([^<()]+)\((BK\d{4})\)_行情中心_东方财富网\s*<\/title>/i);
+    return match && match[2].toUpperCase() === bkCode ? match[1].trim() : '';
+  } catch { return ''; }
+  finally { clearTimeout(timeout); }
+}
+
+async function previousBoardName(fileName: string, bkCode: string): Promise<string> {
+  try {
+    const content = await fs.readFile(path.join(process.cwd(), 'src/pages/data/astock', `${fileName}.ts`), 'utf8');
+    const code = content.match(/export\s+const\s+eastmoneyBoardCode\s*=\s*("(?:\\.|[^"\\])*")/);
+    const name = content.match(/export\s+const\s+eastmoneyBoardName\s*=\s*("(?:\\.|[^"\\])*")/);
+    return code && name && JSON.parse(code[1]) === bkCode && typeof JSON.parse(name[1]) === 'string' ? JSON.parse(name[1]) : '';
+  } catch { return ''; }
+}
+
+function formatBoardStocksAsTs(stocks: IEastmoneyStockItem[], exportName: string, bkCode: string, boardName: string): string {
   const lines = stocks.map((stock) => {
     const name = stock.f14.replace(/[\r\n\u2028\u2029]/g, ' ').trim();
     return `${JSON.stringify(`${stock.f13}.${stock.f12}`)},// ${name}`;
   });
-  return `export const ${exportName} = [\n${lines.join('\n')}\n]\n`;
+  return `export const eastmoneyBoardCode = ${JSON.stringify(bkCode)};\nexport const eastmoneyBoardName = ${JSON.stringify(boardName)};\nexport const ${exportName} = [\n${lines.join('\n')}\n]\n`;
 }
 
 async function saveBoardStocks(fileName: string, content: string): Promise<string> {
@@ -182,23 +209,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const exportName = getSingleQueryParam(req.query.exportName) || `a_${fileName.replace(/-/g, '_')}`;
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(exportName) || /^(?:await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|new|null|return|super|switch|this|throw|true|try|typeof|var|void|while|with|yield|implements|interface|let|package|private|protected|public|static|eval|arguments)$/.test(exportName)) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(exportName) || /^(?:await|break|case|catch|class|const|continue|debugger|default|delete|do|else|enum|export|extends|false|finally|for|function|if|import|in|instanceof|new|null|return|super|switch|this|throw|true|try|typeof|var|void|while|with|yield|implements|interface|let|package|private|protected|public|static|eval|arguments|eastmoneyBoardCode|eastmoneyBoardName)$/.test(exportName)) {
     return res.status(400).json({ error: 'exportName must be a valid TypeScript variable name' });
   }
 
   try {
     const stocks = await fetchAllBoardStocks(bkCode);
     const preview = getSingleQueryParam(req.query.preview) === 'true';
-    const filePath = preview ? null : await saveBoardStocks(fileName, formatBoardStocksAsTs(stocks, exportName));
+    const boardName = preview ? '' : await fetchBoardName(bkCode) || await previousBoardName(fileName, bkCode);
+    const filePath = preview ? null : await saveBoardStocks(fileName, formatBoardStocksAsTs(stocks, exportName, bkCode, boardName));
+    let futuMapping: FutuMappingStatus | null = null;
+    if (!preview) {
+      try {
+        futuMapping = startFutuMappingJob(fileName, stocks.map((stock) => `${stock.f13}.${stock.f12}`));
+      } catch (error) {
+        futuMapping = { fileName, status: 'failed', total: stocks.length, completed: 0, matched: 0, failed: 0, filePath: '', error: error instanceof Error ? error.message : String(error) };
+        console.error(`[futu-mapping] ${fileName}: 启动失败`, futuMapping.error);
+      }
+    }
 
     return res.status(200).json({
       success: true,
       message: preview ? 'Board stocks fetched successfully' : 'Board stocks fetched and saved successfully',
       bkCode,
+      boardName: boardName || null,
       fileName,
       exportName,
       count: stocks.length,
       filePath,
+      futuMapping,
       codes: stocks.map((stock) => `${stock.f13}.${stock.f12}`),
       stocks: stocks.map((stock) => ({
         code: stock.f12,

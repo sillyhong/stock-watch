@@ -53,6 +53,7 @@ import {
 } from "./header";
 import { IRequestFailureInfo } from "../interface";
 import { IStockFetchResult, IFutuStockInfo } from "../interface/futu";
+import { fetchFutuKlines, futuFallbackEnabled } from '@/services/futuQuoteService';
 
 /**
  * 批量数据获取结果
@@ -75,6 +76,7 @@ export const batchFetchStockData = async ({
   stockType,
   klt,
   startFormatDay,
+  endFormatDay,
   batchDelayRange = BATCH_DELAY_RANGE
 }: {
   reqType: EReqType;
@@ -82,6 +84,7 @@ export const batchFetchStockData = async ({
   stockType: string;
   klt: number;
   startFormatDay: string;
+  endFormatDay?: string;
   batchDelayRange: { min: number, max: number}
 }): Promise<IBatchFetchResult> => {
   const batches = createBatches(stockLists);
@@ -89,6 +92,8 @@ export const batchFetchStockData = async ({
   const requestFailures: IRequestFailureInfo[] = [];
   let totalRequestCount = 0;
   let successfulRequestCount = 0;
+  let futuSuccessCount = 0;
+  let futuFailureCount = 0;
 
   // console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 开始批量获取数据，共${batches.length}批次，${stockLists.length}只股票`);
 
@@ -108,7 +113,25 @@ export const batchFetchStockData = async ({
         let result;
         if (reqType === EReqType.EASY_MONEY) {
           const userToken = getRandomUserToken();
-          result = await createEastmoneyRequest(stockId as string, userToken, klt, startFormatDay, headers);
+          try {
+            result = await createEastmoneyRequest(stockId as string, userToken, klt, startFormatDay, headers);
+            const data = result?.data?.data;
+            const [market, code] = (stockId as string).split('.');
+            if (!Array.isArray(data?.klines) || !data.klines.length || String(data.code) !== code || Number(data.market) !== Number(market) || !data.name) throw new Error('东方财富返回空数据或股票信息不匹配');
+          } catch (eastmoneyError) {
+            if (!futuFallbackEnabled()) throw eastmoneyError;
+            try {
+              const source = await fetchFutuKlines(stockId as string, klt, {
+                start: `${startFormatDay.slice(0, 4)}-${startFormatDay.slice(4, 6)}-${startFormatDay.slice(6, 8)}`,
+                end: endFormatDay || dayjs().format('YYYY-MM-DD'),
+              });
+              result = { data: { data: source } };
+              futuSuccessCount++;
+            } catch (fallbackError) {
+              futuFailureCount++;
+              throw new Error(`东方财富及富途获取失败: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`);
+            }
+          }
         } else if (reqType === EReqType.FU_TU) {
           result = await createFutuRequest(stockId as IFutuStockInfo, klt);
         }
@@ -175,6 +198,7 @@ export const batchFetchStockData = async ({
     }
   }
 
+  if (futuSuccessCount || futuFailureCount) console.log(`[${stockType}][${klt}] 富途兜底: 成功 ${futuSuccessCount}，失败 ${futuFailureCount}`);
   return {
     results: allResults,
     requestFailures,
@@ -218,7 +242,7 @@ export const logRequestStatistics = (
 ): void => {
   const { requestFailures, totalRequestCount, successfulRequestCount } = result;
   
-  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求完成统计: 请求类型: ${reqType === EReqType.EASY_MONEY ? '东方财富' : '富途'}   总请求数: ${totalRequestCount} 成功请求数: ${successfulRequestCount} 失败请求数: ${requestFailures.length} 成功率: ${totalRequestCount > 0 ? ((successfulRequestCount / totalRequestCount) * 100).toFixed(2) : 0}%`);
+  console.log(`[${dayjs().format('YYYY-MM-DD HH:mm:ss')}][${stockType}][${klt}] 请求完成统计: 请求类型: ${reqType === EReqType.EASY_MONEY ? '东方财富（可能包含富途兜底）' : '富途'}   总请求数: ${totalRequestCount} 成功请求数: ${successfulRequestCount} 失败请求数: ${requestFailures.length} 成功率: ${totalRequestCount > 0 ? ((successfulRequestCount / totalRequestCount) * 100).toFixed(2) : 0}%`);
 
   // 如果有失败请求，按错误类型分组展示
   if (requestFailures.length > 0) {
