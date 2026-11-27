@@ -73,3 +73,7 @@ export async function listFutuSourceStocks(scope: FutuMappingScope, fileName: st
   }
   return result;
 }
+
+export async function listAllFutuSourceStocks(): Promise<Map<string, FutuMappingSource[]>> {
+  return new Map(await sourceIndex());
+}

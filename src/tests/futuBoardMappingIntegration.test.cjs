@@ -71,6 +71,8 @@ async function run() {
   await store.saveFutuMappingForSources('116.00700', hkInfo);
   assert.equal((await store.readFutuMapping('cpo', 'HK')).stocks['116.00700'].stockId, hkInfo.stockId);
   assert.equal((await store.readFutuMapping('cpo', 'astock')).stocks['116.00700'], undefined, 'same-named boards must stay market-scoped');
+  await store.recordFutuMappingFailureForSources('116.00700', 'temporary failure');
+  assert.deepEqual((await store.readFutuMapping('cpo', 'HK')).failures, [], 'a failure must not replace an existing valid ID');
   await assert.rejects(store.upsertFutuMapping('cpo', 'HK', '116.00700', { ...hkInfo, stockId: '999999' }), /不同的富途 ID/);
   assert.equal((await store.readFutuMapping('cpo', 'HK')).stocks['116.00700'].stockId, hkInfo.stockId, 'conflicting IDs must not overwrite existing data');
   fs.writeFileSync(aFile, 'export const stocks = ["0.301606", "0.300085"];\n');
@@ -82,6 +84,8 @@ async function run() {
   assert.deepEqual(Object.keys(mapping.stocks), ['0.301606']);
   assert.equal(mapping.archivedStocks['1.600118'].stockId, oldInfo.stockId);
   assert.equal(mapping.failures[0].secid, '0.300085');
+  await store.recordFutuMappingFailureForSources('0.300085', 'retry failure');
+  assert.equal((await store.readFutuMapping('cpo')).failures[0].error, 'retry failure');
   assert.equal((await store.lookupFutuMapping('1.600118')).stockId, oldInfo.stockId);
   assert.deepEqual(searches, ['301606', '300085']);
   const legacyInfo = { stockCode: '300999', stockId: '123456', name: '旧映射', marketLabel: 'SZ', marketType: 4 };

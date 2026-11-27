@@ -71,23 +71,47 @@ async function updateMapping(fileName: string, scope: FutuMappingScope, isCurren
   const previous = writeQueues.get(file) || Promise.resolve();
   const operation = previous.catch(() => undefined).then(async () => {
     if (!isCurrent()) return false;
-    const current = await readMappingFile(file, fileName);
-    const next = update(current ?? await readFutuMapping(fileName, scope), !!current);
-    if (!next || !isCurrent()) return false;
-    const temp = `${file}.${randomUUID()}.tmp`;
     await fs.mkdir(path.dirname(file), { recursive: true });
+    const lock = `${file}.lock`;
+    const deadline = Date.now() + 15_000;
+    for (;;) {
+      if (!isCurrent()) return false;
+      try { await fs.mkdir(lock); break; }
+      catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+        if (Date.now() >= deadline) throw new Error(`富途映射写入锁超时: ${lock}`);
+        await new Promise((resolve) => setTimeout(resolve, 50 + Math.random() * 50));
+      }
+    }
+    const temp = `${file}.${randomUUID()}.tmp`;
     try {
+      const current = await readMappingFile(file, fileName);
+      const next = update(current ?? await readFutuMapping(fileName, scope), !!current);
+      if (!next || !isCurrent()) return false;
       await fs.writeFile(temp, `${JSON.stringify(next, null, 2)}\n`, { encoding: 'utf8', flag: 'wx' });
       if (!isCurrent()) return false;
       await fs.rename(temp, file);
       indexExpires = 0;
       return true;
-    } finally { await fs.unlink(temp).catch(() => undefined); }
+    } finally {
+      await fs.unlink(temp).catch(() => undefined);
+      await fs.rmdir(lock);
+    }
   });
   const pending = operation.then(() => undefined, () => undefined);
   writeQueues.set(file, pending);
   try { return await operation; }
   finally { if (writeQueues.get(file) === pending) writeQueues.delete(file); }
+}
+
+export async function recordFutuMappingFailureForSources(secid: string, error: string): Promise<void> {
+  const sources = await findFutuMappingSources(secid);
+  await Promise.all(sources.map(({ fileName, scope }) => updateMapping(fileName, scope, () => true, (previous) => {
+    if (previous?.stocks[secid] && isCompatibleMapping(secid, previous.stocks[secid])) return null;
+    const failures = (previous?.failures ?? []).filter((failure) => failure.secid !== secid);
+    failures.push({ secid, error: error.slice(0, 200) });
+    return { version: 1, fileName, updatedAt: new Date().toISOString(), stocks: previous?.stocks ?? {}, failures, archivedStocks: previous?.archivedStocks };
+  })));
 }
 
 export async function writeFutuMapping(mapping: FutuMappingFile, isCurrent: () => boolean, scope: FutuMappingScope = 'astock'): Promise<boolean> {
