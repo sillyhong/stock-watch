@@ -3,6 +3,7 @@ import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { startFutuMappingJob, type FutuMappingStatus } from '@/services/futuMappingService';
+import { invalidateFutuStockPoolIndex } from '@/services/futuStockPoolLocator';
 
 const API_URL = 'https://push2.eastmoney.com/api/qt/clist/get';
 const PAGE_SIZE = 100;
@@ -220,6 +221,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const filePath = preview ? null : await saveBoardStocks(fileName, formatBoardStocksAsTs(stocks, exportName, bkCode, boardName));
     let futuMapping: FutuMappingStatus | null = null;
     if (!preview) {
+      invalidateFutuStockPoolIndex();
       try {
         futuMapping = startFutuMappingJob(fileName, stocks.map((stock) => `${stock.f13}.${stock.f12}`));
       } catch (error) {

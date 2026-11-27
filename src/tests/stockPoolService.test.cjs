@@ -43,7 +43,8 @@ moduleInstance.paths = Module._nodeModulePaths(path.dirname(file));
 Module._load = function(request, parent, isMain) {
   if (request === '@/services/lib/database') return { __esModule: true, default: database };
   if (request === '@/config/apiCatalog') return { apiCatalog: tasks };
-  if (request === '@/services/futuMappingService') return { getFutuMappingStatus: async () => null, startFutuMappingJob: (fileName, codes) => { mappingCalls.push({ fileName, codes }); return { status: 'running' }; } };
+  if (request === '@/services/futuMappingService') return { getFutuMappingStatus: async () => null, startFutuMappingJob: (fileName, codes, scope) => { mappingCalls.push({ fileName, codes, scope }); return { status: 'running' }; } };
+  if (request === '@/services/futuStockPoolLocator') return { invalidateFutuStockPoolIndex: () => {} };
   return originalLoad.call(this, request, parent, isMain);
 };
 try {
@@ -106,10 +107,14 @@ async function run() {
   assert.equal(mappingCalls[0].fileName, 'cpo');
   assert.ok(mappingCalls[0].codes.length > 0);
   assert.notDeepEqual(await service.getTaskStocks(initial.taskId), first);
+  const sectorSaved = await service.updateTaskPool(initial.taskId, ['sector:A/hangtian_bk1232_invalid'], saved.version);
+  for (let i = 0; i < 20 && !mappingCalls.some((call) => call.fileName === 'hangtian_bk1232_invalid' && call.scope === 'A'); i++) await new Promise((resolve) => setTimeout(resolve, 20));
+  assert.deepEqual(mappingCalls.find((call) => call.fileName === 'hangtian_bk1232_invalid' && call.scope === 'A')?.codes, ['1.600118', '1.601698']);
+  assert.deepEqual(await service.getTaskStocks(initial.taskId), ['1.600118', '1.601698']);
   assert.ok((await service.getTaskPool('rsi-watch-15m-a')).sources.includes('sector:A/ai_bk0737'));
   await assert.rejects(service.updateTaskPool(initial.taskId, ['board:cpo'], 1), /其他人修改/);
-  await assert.rejects(service.updateTaskPool(initial.taskId, ['sector:HK/hulianwang'], saved.version), /不属于 A/);
-  await service.updateTaskPool(initial.taskId, [], saved.version);
+  await assert.rejects(service.updateTaskPool(initial.taskId, ['sector:HK/hulianwang'], sectorSaved.version), /不属于 A/);
+  await service.updateTaskPool(initial.taskId, [], sectorSaved.version);
   await assert.rejects(service.getTaskStocks(initial.taskId), /尚未配置/);
   assert.deepEqual(await service.getTaskStocks(initial.taskId, { allowEmpty: true }), []);
   console.log('stock pool service tests passed');

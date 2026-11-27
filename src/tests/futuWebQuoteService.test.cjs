@@ -10,8 +10,10 @@ loaded.filename = file;
 loaded.paths = Module._nodeModulePaths(path.dirname(file));
 const originalLoad = Module._load;
 let savedInfo;
+const automaticMappings = new Map();
+let failSave = false;
 Module._load = function(request, parent, isMain) {
-  if (request === './futuMappingStore') return { lookupFutuMapping: async () => savedInfo };
+  if (request === './futuMappingStore') return { lookupFutuMapping: async () => savedInfo, saveFutuMappingForSources: async (code, value) => { if (failSave) throw new Error('disk unavailable'); automaticMappings.set(code, value); } };
   return originalLoad.call(this, request, parent, isMain);
 };
 try { loaded._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText, file); }
@@ -32,6 +34,7 @@ async function run() {
   assert.throws(() => service.parseFutuStockPage(html, '600519', 'SH'), /身份不匹配/);
   assert.throws(() => service.parseFutuStockPage('bad html', '300085', 'SZ'), /缺少初始状态/);
   axios.get = async (url, options) => {
+    if (url.includes('/search-stock/predict')) return { data: { code: 0, data: { quote: [] } } };
     if (url.includes('/stock/')) { pages++; return { data: html }; }
     quotes++;
     assert.equal(options.headers['quote-token'], service.signFutuWebParams(options.params));
@@ -83,6 +86,57 @@ async function run() {
   await assert.rejects(service.fetchFutuWebKlines('0.300085', 5, { start: '2026-11-25', end: '2026-11-25' }), /熔断/);
   assert.equal(failedRequests, 1);
   assert.equal((await service.fetchFutuWebKlines('0.300085', 101, { start: '2026-11-25', end: '2026-11-25' })).klines.length, 1);
+  let searchCalls = 0;
+  let klineParams;
+  const searchMock = axios.get;
+  axios.get = async (url, options) => {
+    if (url.includes('/search-stock/predict')) {
+      searchCalls++;
+      const code = options.params.keyword;
+      return { data: { code: 0, data: { quote: [
+        { stockSymbol: code, stockName: '错误市场', stockId: '900', market: 'hk', marketType: 1 },
+        { stockSymbol: code, stockName: '中国卫星', stockId: '43426415929974', market: 'sh', marketType: 4 },
+      ] } } };
+    }
+    if (url.includes('/get-kline')) {
+      klineParams = options.params;
+      assert.equal(options.headers['quote-token'], service.signFutuWebParams(options.params));
+      return { data: { code: 0, data: { list: [example] } } };
+    }
+    return searchMock(url, options);
+  };
+  const found = await service.fetchFutuWebKlines('1.600118', 101, { start: '2026-11-25', end: '2026-11-25' });
+  assert.equal(found.name, '中国卫星');
+  assert.equal(found.code, '600118');
+  assert.equal(klineParams.stockId, '43426415929974');
+  assert.equal(klineParams.marketType, '4');
+  assert.equal(klineParams.marketCode, undefined);
+  assert.equal(automaticMappings.get('1.600118').stockId, '43426415929974');
+  assert.equal(searchCalls, 1);
+  assert.equal(pages, 1, 'search result should avoid the stock page');
+  failSave = true;
+  const stockWithoutDisk = await service.fetchFutuWebKlines('1.600121', 101, { start: '2026-11-25', end: '2026-11-25' });
+  assert.equal(stockWithoutDisk.code, '600121', 'disk failure must not block live quote retrieval');
+  failSave = false;
+  axios.get = async (url) => {
+    if (url.includes('/search-stock/predict')) return { data: { code: 0, data: { quote: [
+      { stockSymbol: '600119', stockName: '候选1', stockId: '123', market: 'sh', marketType: 4 },
+      { stockSymbol: '600119', stockName: '候选2', stockId: '456', market: 'sh', marketType: 4 },
+    ] } } };
+    if (url.includes('/stock/')) return { data: html };
+    throw new Error('unexpected quote request');
+  };
+  await assert.rejects(service.resolveFutuStockInfo('1.600119'), /未找到唯一匹配/);
+  assert.equal(automaticMappings.has('1.600119'), false, 'ambiguous search must not be saved');
+  let pageAfterLimit = false;
+  axios.get = async (url) => {
+    if (url.includes('/search-stock/predict')) throw new axios.AxiosError('rate limited', 'ERR_BAD_REQUEST', undefined, undefined, { status: 429 });
+    if (url.includes('/stock/')) pageAfterLimit = true;
+    throw new Error('unexpected request');
+  };
+  await assert.rejects(service.resolveFutuStockInfo('1.600120'), /熔断/);
+  assert.equal(pageAfterLimit, false, 'rate-limited search must not retry through the page');
+  axios.get = searchMock;
   console.log('futu web quote tests passed');
 }
 run().catch((error) => { console.error(error); process.exitCode = 1; }).finally(() => { axios.get = originalGet; });

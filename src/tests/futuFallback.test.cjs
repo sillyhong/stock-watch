@@ -59,7 +59,7 @@ async function run() {
     web.paths = Module._nodeModulePaths(path.dirname(webFile));
     const load = Module._load;
     Module._load = function(request, parent, isMain) {
-      if (request === './futuMappingStore') return { lookupFutuMapping: async () => undefined };
+      if (request === './futuMappingStore') return { lookupFutuMapping: async () => undefined, saveFutuMappingForSources: async () => {} };
       return load.call(this, request, parent, isMain);
     };
     try { web._compile(ts.transpileModule(fs.readFileSync(webFile, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText, webFile); }

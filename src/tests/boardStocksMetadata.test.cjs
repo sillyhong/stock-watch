@@ -14,6 +14,7 @@ compiled.paths = Module._nodeModulePaths(path.dirname(file));
 const load = Module._load;
 Module._load = function(request, parent, main) {
   if (request === '@/services/futuMappingService') return { startFutuMappingJob: () => null };
+  if (request === '@/services/futuStockPoolLocator') return { invalidateFutuStockPoolIndex: () => {} };
   return load.call(this, request, parent, main);
 };
 try { compiled._compile(ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true } }).outputText, file); }

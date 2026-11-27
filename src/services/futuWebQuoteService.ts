@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { createHash, createHmac } from 'crypto';
-import { lookupFutuMapping } from './futuMappingStore';
+import { lookupFutuMapping, saveFutuMappingForSources } from './futuMappingStore';
 
-export type StockInfo = { name: string; stockCode: string; stockId: string | number; marketType: string | number; marketLabel: string; marketCode: string | number; instrumentType: string | number; subInstrumentType: string | number };
+export type StockInfo = { name: string; stockCode: string; stockId: string | number; marketType: string | number; marketLabel: string; marketCode?: string | number; instrumentType?: string | number; subInstrumentType?: string | number };
+type SearchItem = { stockSymbol?: unknown; stockName?: unknown; stockId?: unknown; market?: unknown; marketType?: unknown };
 type WebBar = { k?: number; o?: string | number; c?: string | number; h?: string | number; l?: string | number; v?: number; t?: number; r?: number | null; lc?: number; cp?: string | number };
 export type FutuQuoteOptions = { start: string; end: string; limit?: number; adjustment?: number };
 export type FutuEastmoneyData = { code: string; market: number; name: string; preKPrice: number; klines: string[] };
@@ -11,11 +12,13 @@ const KLINE_TYPES: Record<number, string> = { 5: '6', 15: '7', 30: '8', 60: '9',
 const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Safari/605.1.15';
 const STOCK_TTL_MS = 10 * 60 * 1000;
 const COOLDOWN_MS = 60 * 1000;
+const SEARCH_INTERVAL_MS = 200;
 const stockCache = new Map<string, { info: StockInfo; expires: number }>();
 const stockPending = new Map<string, Promise<StockInfo>>();
 const circuitUntil = new Map<string, number>();
 const timeFormatters = new Map<string, Intl.DateTimeFormat>();
 let active = 0;
+let nextSearchAt = 0;
 const waiters: Array<() => void> = [];
 
 async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
@@ -59,7 +62,8 @@ export function parseFutuStockPage(html: string, code: string, marketLabel: stri
 }
 
 function isValidStockInfo(info: StockInfo | undefined, code: string, marketLabel: string): info is StockInfo {
-  return !!info && String(info.stockCode).toUpperCase() === code.toUpperCase() && String(info.marketLabel).toUpperCase() === marketLabel && typeof info.name === 'string' && !!info.name && /^\d+$/.test(String(info.stockId)) && (typeof info.stockId !== 'number' || Number.isSafeInteger(info.stockId)) && [info.marketType, info.marketCode, info.instrumentType, info.subInstrumentType].every((value) => /^\d+$/.test(String(value)));
+  const expectedMarketType = marketLabel === 'HK' ? 1 : marketLabel === 'US' ? 2 : 4;
+  return !!info && String(info.stockCode).toUpperCase() === code.toUpperCase() && String(info.marketLabel).toUpperCase() === marketLabel && typeof info.name === 'string' && !!info.name.trim() && /^[1-9]\d*$/.test(String(info.stockId)) && (typeof info.stockId !== 'number' || Number.isSafeInteger(info.stockId)) && Number(info.marketType) === expectedMarketType && [info.marketCode, info.instrumentType, info.subInstrumentType].every((value) => value === undefined || (value !== null && /^\d+$/.test(String(value))));
 }
 
 function getStockRoute(secid: string): { market: number; code: string; exchange: string } {
@@ -84,27 +88,74 @@ function requestError(error: unknown, key: string): Error {
   return new Error(`富途网页请求失败${status ? ` HTTP ${status}` : axios.isAxiosError(error) && error.code ? ` ${error.code}` : ''}`);
 }
 
-async function getStockInfo(secid: string, refresh = false): Promise<StockInfo> {
+async function searchStockInfo(code: string, exchange: string): Promise<StockInfo> {
+  let payload: { code?: number; data?: { quote?: SearchItem[] } };
+  try {
+    const response = await withSlot(async () => {
+      const now = Date.now();
+      const scheduled = Math.max(now, nextSearchAt);
+      nextSearchAt = scheduled + SEARCH_INTERVAL_MS;
+      if (scheduled > now) await new Promise((resolve) => setTimeout(resolve, scheduled - now));
+      checkCircuit('*');
+      return axios.get<typeof payload>('https://www.futunn.com/search-stock/predict', {
+        params: { keyword: code, lang: 'zh-cn', site: 'cn' },
+        headers: { 'User-Agent': USER_AGENT, Accept: 'application/json, text/plain, */*', Referer: 'https://www.futunn.com/' },
+        timeout: 15000, maxContentLength: 5 * 1024 * 1024,
+      });
+    });
+    payload = response.data;
+  } catch (error) { throw requestError(error, '*'); }
+  if (payload?.code !== 0 || !Array.isArray(payload.data?.quote)) throw new Error('富途股票搜索返回无效数据');
+  const matches = payload.data.quote.filter((item) => !!item && typeof item === 'object' && typeof item.stockSymbol === 'string' && item.stockSymbol.toUpperCase() === code.toUpperCase() && typeof item.market === 'string' && item.market.toUpperCase() === exchange);
+  const candidates = matches.map((item) => ({ name: item.stockName, stockCode: item.stockSymbol, stockId: item.stockId, marketType: item.marketType, marketLabel: exchange } as StockInfo)).filter((info) => isValidStockInfo(info, code, exchange));
+  const unique = new Map(candidates.map((info) => [String(info.stockId), info]));
+  if (unique.size !== 1) throw new Error(`富途股票搜索未找到唯一匹配: ${exchange}.${code}`);
+  return [...unique.values()][0];
+}
+
+async function saveSourceMappings(secid: string, info: StockInfo): Promise<void> {
+  await saveFutuMappingForSources(secid, info).catch((error: unknown) => {
+    if (error && typeof error === 'object' && 'code' in error && error.code === 'FUTU_MAPPING_CONFLICT') throw error;
+    console.error(`[futu-mapping] ${secid}: 保存板块映射失败:`, error instanceof Error ? error.message : String(error));
+  });
+}
+
+async function getStockInfo(secid: string): Promise<StockInfo> {
   const cached = stockCache.get(secid);
-  if (!refresh && cached && cached.expires > Date.now()) return cached.info;
+  if (cached && cached.expires > Date.now()) {
+    await saveSourceMappings(secid, cached.info);
+    return cached.info;
+  }
   const pending = stockPending.get(secid);
   if (pending) return pending;
   const { code, exchange } = getStockRoute(secid);
   const request = (async () => {
-    if (!refresh) {
-      const stored = await lookupFutuMapping(secid).catch(() => undefined);
-      if (isValidStockInfo(stored, code, exchange)) {
-        stockCache.set(secid, { info: stored, expires: Date.now() + STOCK_TTL_MS });
-        return stored;
-      }
+    const stored = await lookupFutuMapping(secid).catch((error: unknown) => {
+      if (error && typeof error === 'object' && 'code' in error && error.code === 'FUTU_MAPPING_CONFLICT') throw error;
+      return undefined;
+    });
+    if (isValidStockInfo(stored, code, exchange)) {
+      await saveSourceMappings(secid, stored);
+      stockCache.set(secid, { info: stored, expires: Date.now() + STOCK_TTL_MS });
+      return stored;
     }
     checkCircuit('*');
-    let html: string;
+    let info: StockInfo;
     try {
-      const response = await withSlot(() => axios.get<string>(`https://www.futunn.com/stock/${encodeURIComponent(code)}-${exchange}`, { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' }, timeout: 15000, maxContentLength: 5 * 1024 * 1024, responseType: 'text' }));
-      html = response.data;
-    } catch (error) { throw requestError(error, '*'); }
-    const info = parseFutuStockPage(html, code, exchange);
+      info = await searchStockInfo(code, exchange);
+    } catch (searchError) {
+      // Do not send another request after an upstream authentication or rate-limit response.
+      checkCircuit('*');
+      try {
+        const response = await withSlot(() => axios.get<string>(`https://www.futunn.com/stock/${encodeURIComponent(code)}-${exchange}`, { headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' }, timeout: 15000, maxContentLength: 5 * 1024 * 1024, responseType: 'text' }));
+        info = parseFutuStockPage(response.data, code, exchange);
+      } catch (pageError) {
+        const searchMessage = searchError instanceof Error ? searchError.message : String(searchError);
+        const pageMessage = axios.isAxiosError(pageError) ? requestError(pageError, '*').message : pageError instanceof Error ? pageError.message : String(pageError);
+        throw new Error(`${searchMessage}; ${pageMessage}`);
+      }
+    }
+    await saveSourceMappings(secid, info);
     if (stockCache.size >= 500) stockCache.delete(stockCache.keys().next().value as string);
     stockCache.set(secid, { info, expires: Date.now() + STOCK_TTL_MS });
     return info;
@@ -114,7 +165,7 @@ async function getStockInfo(secid: string, refresh = false): Promise<StockInfo> 
 }
 
 export function resolveFutuStockInfo(secid: string): Promise<StockInfo> {
-  return getStockInfo(secid, true);
+  return getStockInfo(secid);
 }
 
 function formatTime(seconds: number, market: number, klt: number): string {
@@ -144,7 +195,9 @@ export async function fetchFutuWebKlines(secid: string, klt: number, options: Fu
   const circuitKey = `${secid}:${type}`;
   checkCircuit(circuitKey);
   const info = await getStockInfo(secid);
-  const params: Record<string, string> = { stockId: String(info.stockId), marketType: String(info.marketType), type, marketCode: String(info.marketCode), instrumentType: String(info.instrumentType), subInstrumentType: String(info.subInstrumentType), _: String(Date.now()) };
+  const params: Record<string, string> = { stockId: String(info.stockId), marketType: String(info.marketType), type };
+  for (const key of ['marketCode', 'instrumentType', 'subInstrumentType'] as const) if (info[key] !== undefined) params[key] = String(info[key]);
+  params._ = String(Date.now());
   let payload: { code?: number; message?: string; data?: { list?: WebBar[] } };
   try {
     const response = await withSlot(() => axios.get<typeof payload>('https://www.futunn.com/quote-api/quote-v2/get-kline', { params, headers: { 'User-Agent': USER_AGENT, Accept: 'application/json, text/plain, */*', Referer: `https://www.futunn.com/stock/${encodeURIComponent(code)}-${exchange}`, 'quote-token': signFutuWebParams(params) }, timeout: 20000, maxContentLength: 30 * 1024 * 1024 }));

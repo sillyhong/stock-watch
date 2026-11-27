@@ -5,6 +5,7 @@ import { QueryTypes } from 'sequelize';
 import { apiCatalog, type ApiTaskDefinition } from '@/config/apiCatalog';
 import sequelize from '@/services/lib/database';
 import { getFutuMappingStatus, startFutuMappingJob } from '@/services/futuMappingService';
+import { invalidateFutuStockPoolIndex } from '@/services/futuStockPoolLocator';
 
 const SOURCE_DIRECTORY = path.join(process.cwd(), 'src/pages/data/astock');
 const WATCHLIST_FILE = path.join(process.cwd(), 'src/pages/utils/stockList.ts');
@@ -273,6 +274,7 @@ export async function updateTaskPool(taskId: string, sources: string[], version:
     replacements: { taskId, version, sources: JSON.stringify(sources) },
   });
   if ((metadata as { affectedRows?: number }).affectedRows !== 1) throw new Error('配置已被其他人修改，请刷新后重试');
+  invalidateFutuStockPoolIndex();
   const newFiles = [...new Set(sources.filter((source) => !previous.sources.includes(source)).map((source) => source.startsWith('board:') ? `${source.slice(6)}.ts` : source.split('#')[0]).filter((file) => /^[A-Za-z0-9_-]{1,80}\.ts$/.test(file)))];
   for (const file of newFiles) {
     void (async () => {
@@ -282,6 +284,19 @@ export async function updateTaskPool(taskId: string, sources: string[], version:
       const codes = [...new Set([...arrays.values()].filter((items) => marketForCodes(items)).flat())];
       if (codes.length) startFutuMappingJob(fileName, codes);
     })().catch((error) => console.error(`[futu-mapping] ${file}: 启动失败:`, error instanceof Error ? error.message : String(error)));
+  }
+  const newSectors = sources.filter((source) => source.startsWith('sector:') && !previous.sources.includes(source));
+  for (const source of newSectors) {
+    void (async () => {
+      const match = /^sector:(A|HK|US)\/([A-Za-z0-9_-]+)$/.exec(source);
+      if (!match) throw new Error('无效的分类来源');
+      const scope = match[1] as 'A' | 'HK' | 'US';
+      const fileName = match[2];
+      if (!/^[A-Za-z0-9_-]{1,80}$/.test(fileName)) throw new Error('分类名称过长，映射将在首次兜底时生成');
+      if ((await getFutuMappingStatus(fileName, scope).catch(() => null))?.status === 'running') return;
+      const codes = await loadSource(source, task.market);
+      if (codes.length) startFutuMappingJob(fileName, [...new Set(codes)], scope);
+    })().catch((error) => console.error(`[futu-mapping] ${source}: 启动失败:`, error instanceof Error ? error.message : String(error)));
   }
   return getTaskPool(taskId);
 }

@@ -49,7 +49,7 @@ async function run() {
   process.chdir(temp);
   const catalog = compile('src/config/apiCatalog.ts');
   const mapping = { getFutuMappingStatus: async () => null, startFutuMappingJob: () => ({ status: 'running' }) };
-  const service = compile('src/services/stockPoolService.ts', { '@/config/apiCatalog': catalog, '@/services/lib/database': { __esModule: true, default: database }, '@/services/futuMappingService': mapping });
+  const service = compile('src/services/stockPoolService.ts', { '@/config/apiCatalog': catalog, '@/services/lib/database': { __esModule: true, default: database }, '@/services/futuMappingService': mapping, '@/services/futuStockPoolLocator': { invalidateFutuStockPoolIndex: () => {} } });
   const handler = compile('src/pages/api/stock-pools.api.ts', { '@/services/stockPoolService': service }).default;
   const original = { task_id: 'rsi-watch-5m-a', market: null, sources: '["astock.ts#AStockList"]', version: 1 };
   rows.set(original.task_id, { ...original });

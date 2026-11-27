@@ -7,7 +7,7 @@ import { pinyin } from "pinyin-pro";
 import styles from "./page.module.css";
 
 type Stock = { code: string; market: number; name: string; price: number | null; changePercent: number | null };
-type MappingStatus = { fileName: string; status: "running" | "complete" | "partial" | "failed"; total: number; completed: number; matched: number; failed: number; error?: string; failureSamples?: Array<{ secid: string; error: string }> };
+type MappingStatus = { fileName: string; status: "running" | "complete" | "partial" | "failed"; total: number; completed: number; matched: number; failed: number; pending?: number; error?: string; failureSamples?: Array<{ secid: string; error: string }> };
 type BoardResponse = { success: boolean; error?: string; bkCode: string; count: number; stocks: Stock[]; filePath: string | null; futuMapping?: MappingStatus | null };
 type Board = { code: string; name: string; categories: string[]; industryLevels?: number[] };
 
@@ -196,7 +196,7 @@ function BoardContent() {
           </div>
         </Card>
         {error && <Alert className={styles.alert} type="error" showIcon message="板块数据获取失败" description={error} />}
-      {mapping && <Alert className={styles.alert} type={mapping.status === "complete" ? "success" : mapping.status === "running" ? "info" : "warning"} showIcon message={`${mapping.fileName}.ts 的富途映射${mapping.status === "running" ? "生成中" : mapping.status === "complete" ? "已生成" : "未完全生成"}：${mapping.matched}/${mapping.total} 只`} description={mapping.status === "running" ? `已处理 ${mapping.completed}/${mapping.total}，可关闭页面，任务在服务器后台继续。` : mapping.error || (mapping.failed ? `失败 ${mapping.failed} 只，不影响东方财富股票池。${mapping.failureSamples?.map((item) => `${item.secid}: ${item.error}`).join("；") ?? ""}` : "后续富途兜底会优先使用该映射；请求签名每次动态生成，不写入文件。")} />}
+      {mapping && <Alert className={styles.alert} type={mapping.status === "complete" ? "success" : mapping.status === "running" ? "info" : "warning"} showIcon message={`${mapping.fileName}.ts 的富途映射${mapping.status === "running" ? "生成中" : mapping.status === "complete" ? "已生成" : "未完全生成"}：${mapping.matched}/${mapping.total} 只`} description={mapping.status === "running" ? `已处理 ${mapping.completed}/${mapping.total}，可关闭页面，任务在服务器后台继续。` : mapping.error || (mapping.failed || mapping.pending ? `失败 ${mapping.failed} 只，尚未匹配 ${mapping.pending ?? 0} 只，不影响东方财富股票池。${mapping.failureSamples?.map((item) => `${item.secid}: ${item.error}`).join("；") ?? ""}` : "后续富途兜底会优先使用该映射；请求签名每次动态生成，不写入文件。")} />}
         <Card className={styles.list} title={<Space><span>成分股列表</span><Tag color="cyan">{code}</Tag><Typography.Text type="secondary">{result ? `${result.count} 只股票` : ""}</Typography.Text></Space>} extra={<Input aria-label="搜索股票" prefix={<SearchOutlined />} placeholder="搜索名称或代码" value={query} onChange={(event) => { setQuery(event.target.value); setPage(1); }} allowClear />}>
           <Table<Stock> rowKey={(stock) => `${stock.market}.${stock.code}`} columns={columns} dataSource={filtered} loading={loading} pagination={{ current: page, onChange: setPage, pageSize: 25, showSizeChanger: false, showTotal: (total) => `共 ${total} 只` }} scroll={{ x: 560 }} locale={{ emptyText: error ? "暂无数据，请重试" : "没有匹配的股票" }} />
           <div className={styles.note}>行情来自东方财富，价格与涨跌幅可能延迟。浏览不会修改股票文件。</div>
